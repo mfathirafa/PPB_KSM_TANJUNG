@@ -1,6 +1,7 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'package:flutter/material.dart';
 import 'dart:async';
 
 void main() => runApp(MyApp());
@@ -9,9 +10,44 @@ void main() => runApp(MyApp());
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
+    const whatsappGreen = Color(0xFF25D366);
+
     return MaterialApp(
       title: 'KSM Tanjung Demo',
-      theme: ThemeData(primarySwatch: Colors.green),
+      theme: ThemeData(
+        primaryColor: whatsappGreen,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: whatsappGreen,
+          primary: whatsappGreen,
+          secondary: whatsappGreen,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: whatsappGreen,
+            foregroundColor: Colors.white,
+            textStyle: const TextStyle(fontWeight: FontWeight.bold),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        outlinedButtonTheme: OutlinedButtonThemeData(
+          style: OutlinedButton.styleFrom(
+            foregroundColor: whatsappGreen,
+            side: const BorderSide(color: whatsappGreen),
+            textStyle: const TextStyle(fontWeight: FontWeight.bold),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+        textButtonTheme: TextButtonThemeData(
+          style: TextButton.styleFrom(
+            foregroundColor: whatsappGreen,
+            textStyle: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      ),
       home: WelcomeScreen(),
     );
   }
@@ -500,12 +536,6 @@ class HomeTab extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('Keluar (dummy)'))),
-                    child: Text('Keluar'),
                   ),
                 ],
               ),
@@ -1094,35 +1124,217 @@ class _QrisPaymentPageState extends State<QrisPaymentPage> {
 }
 
 /* --------------------------- Riwayat Tab --------------------------- */
-class RiwayatTab extends StatelessWidget {
+class RiwayatTab extends StatefulWidget {
   final List<Map<String, dynamic>> history;
-  const RiwayatTab({required this.history});
+  const RiwayatTab({required this.history, super.key});
+
+  @override
+  _RiwayatTabState createState() => _RiwayatTabState();
+}
+
+class _RiwayatTabState extends State<RiwayatTab> {
+  String selectedStatus = 'Semua';
+  String selectedTanggal = 'Terbaru';
 
   @override
   Widget build(BuildContext context) {
-    if (history.isEmpty) {
-      return Center(child: Text('Belum ada riwayat pembayaran'));
-    }
-    return ListView.builder(
-      padding: EdgeInsets.all(16),
-      itemCount: history.length,
-      itemBuilder: (_, i) {
-        final h = history[i];
-        return Card(
-          margin: EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            title: Text(h['title']),
-            subtitle: Text('${h['method']} • ${h['date']}'),
-            trailing: Text(
-              'Rp ${h['amount']}',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
+    // Filter history (opsional, bisa dikembangkan)
+    List<Map<String, dynamic>> filtered = widget.history;
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        children: [
+          // Dropdown Filters
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value:
+                      [
+                        'Semua',
+                        'Terkonfirmasi',
+                        'Menunggu Pembayaran',
+                      ].contains(selectedStatus)
+                      ? selectedStatus
+                      : null,
+                  decoration: InputDecoration(
+                    labelText: 'Status',
+                    labelStyle: TextStyle(color: Colors.green.shade700),
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.green.shade700),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Colors.green.shade700,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  iconEnabledColor: Colors.green.shade700,
+                  dropdownColor: Colors.green.shade50,
+                  items: ['Semua', 'Terkonfirmasi', 'Menunggu Pembayaran']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        selectedStatus = val;
+                      });
+                    }
+                  },
+                ),
+              ),
+              SizedBox(width: 12),
+              Expanded(
+                child: DropdownButtonFormField<String>(
+                  value: ['Terbaru', 'Terlama'].contains(selectedTanggal)
+                      ? selectedTanggal
+                      : null,
+                  decoration: InputDecoration(
+                    labelText: 'Urutkan',
+                    labelStyle: TextStyle(color: Colors.green.shade700),
+                    border: OutlineInputBorder(
+                      borderSide: BorderSide(color: Colors.green.shade700),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderSide: BorderSide(
+                        color: Colors.green.shade700,
+                        width: 2,
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                  ),
+                  iconEnabledColor: Colors.green.shade700,
+                  dropdownColor: Colors.green.shade50,
+                  items: ['Terbaru', 'Terlama']
+                      .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                      .toList(),
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        selectedTanggal = val;
+                      });
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
-        );
-      },
+          SizedBox(height: 16),
+
+          // List transaksi
+          Expanded(
+            child: filtered.isEmpty
+                ? Center(child: Text('Belum ada riwayat pembayaran'))
+                : ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (_, i) {
+                      final h = filtered[i];
+                      Color statusColor = h['status'] == 'Terkonfirmasi'
+                          ? Colors.green.shade100
+                          : Colors.yellow.shade100;
+                      Color borderColor = h['status'] == 'Terkonfirmasi'
+                          ? Colors.green.shade400
+                          : Colors.yellow.shade700;
+
+                      return Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(14),
+                          side: BorderSide(color: borderColor, width: 1),
+                        ),
+                        elevation: 2,
+                        margin: EdgeInsets.only(bottom: 12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(12.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    h['title'] ?? 'Tanpa Judul',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green.shade800,
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 4,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: statusColor,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      h['status'] ?? '-',
+                                      style: TextStyle(
+                                        color: Colors.green.shade800,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              SizedBox(height: 4),
+                              Text(
+                                h['date'] ?? '-',
+                                style: TextStyle(color: Colors.grey[700]),
+                              ),
+                              SizedBox(height: 8),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(h['method'] ?? '-'),
+                                  Text(
+                                    'Rp ${h['amount'] ?? '0'}',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.green.shade800,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }
+
+/* --------------------------- Contoh Data --------------------------- */
+final List<Map<String, dynamic>> exampleHistory = [
+  {
+    'title': 'Tagihan #12345',
+    'date': '26 April 2025, 14:25',
+    'method': 'QRIS (E-wallet)',
+    'amount': '15.000',
+    'status': 'Terkonfirmasi',
+  },
+  {
+    'title': 'Tagihan #12346',
+    'date': '26 April 2025, 14:25',
+    'method': 'Bank Transfer',
+    'amount': '15.000',
+    'status': 'Menunggu Pembayaran',
+  },
+];
 
 /* --------------------------- Profile Tab --------------------------- */
 class ProfileTab extends StatelessWidget {
@@ -1158,12 +1370,6 @@ class ProfileTab extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ),
-                  TextButton(
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Edit profile (dummy)')),
-                    ),
-                    child: Text('Edit'),
                   ),
                 ],
               ),
