@@ -1,7 +1,6 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'dart:math';
-import 'package:flutter/material.dart';
 import 'dart:async';
 
 void main() => runApp(MyApp());
@@ -499,249 +498,511 @@ class HomeTab extends StatelessWidget {
     );
 
     return SingleChildScrollView(
-      padding: EdgeInsets.all(16),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Card(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Padding(
-              padding: EdgeInsets.all(12),
-              child: Row(
-                children: [
-                  CircleAvatar(radius: 28, child: Text(member['name'][0])),
-                  SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          member['name'],
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          member['address'],
-                          style: TextStyle(color: Colors.grey[700]),
-                        ),
-                        SizedBox(height: 6),
-                        Text(
-                          'ID: ${member['id']}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          SizedBox(height: 12),
+          /* --------------------------- Header --------------------------- */
           Text(
-            'Informasi Tagihan',
-            style: TextStyle(fontWeight: FontWeight.bold),
+            'Selamat datang, Lando Norris!',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
-          SizedBox(height: 8),
-          if (nextBill.isNotEmpty)
-            Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Padding(
-                padding: EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          const SizedBox(height: 4),
+          const Text(
+            'Minggu, 20 April 2025',
+            style: TextStyle(color: Colors.grey, fontSize: 13),
+          ),
+          const SizedBox(height: 16),
+
+          /* ---------------------- Informasi Pelanggan ---------------------- */
+          const Text(
+            'Informasi Pelanggan',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                _InfoRow(title: 'Nama Lengkap', value: 'Fathi Setiawan'),
+                _InfoRow(title: 'No. WhatsApp', value: '+62 812 3456 7890'),
+                _InfoRow(
+                  title: 'Alamat',
+                  value: 'Jl. Tanjung Raya No. 45, RT 03/RW 02',
+                ),
+                _InfoRow(title: 'Role', value: 'Pelanggan'),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 16),
+
+          /* ---------------------- Informasi Tagihan ---------------------- */
+          const Text(
+            'Informasi Tagihan',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black12,
+                  blurRadius: 4,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const _InfoRow(title: 'Bulan', value: 'April 2025'),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(
-                      nextBill['title'],
-                      style: TextStyle(fontWeight: FontWeight.w600),
+                    const Text(
+                      'Status',
+                      style: TextStyle(color: Colors.black54),
                     ),
-                    SizedBox(height: 6),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Jatuh Tempo',
-                              style: TextStyle(
-                                color: Colors.grey[700],
-                                fontSize: 12,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              nextBill['due'],
-                              style: TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                          ],
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.amber[700],
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Text(
+                        'Belum Dibayar',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w500,
                         ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              'Rp ${nextBill['amount']}',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                            SizedBox(height: 8),
-                            ElevatedButton(
-                              onPressed: () {
-                                // navigate to pembayaran screen with bill data
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (_) =>
-                                        PembayaranScreen(bill: nextBill),
-                                  ),
-                                );
-                              },
-                              child: Text('Bayar Sekarang'),
-                            ),
-                          ],
-                        ),
-                      ],
+                      ),
                     ),
                   ],
                 ),
-              ),
-            )
-          else
-            Text(
-              'Tidak ada tagihan aktif',
-              style: TextStyle(color: Colors.grey),
-            ),
-          SizedBox(height: 18),
-          Text('Navigasi Cepat', style: TextStyle(fontWeight: FontWeight.bold)),
-          SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ElevatedButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CekTagihanTab(bills: bills),
-                  ),
-                ),
-                icon: Icon(Icons.receipt_long),
-                label: Text('Cek Tagihan'),
-              ),
-              ElevatedButton.icon(
-                onPressed: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => RiwayatTab(
-                      history: [
-                        {
-                          'id': '#TRX001',
-                          'title': 'Pembayaran',
-                          'amount': 12000,
-                          'method': 'QRIS',
-                          'date': '25 Apr 2025',
-                        },
-                      ],
+                const SizedBox(height: 6),
+                const _InfoRow(title: 'Jumlah', value: 'Rp. 15.000'),
+                const _InfoRow(title: 'Deadline', value: '30 April 2025'),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(6),
+                      ),
                     ),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => PembayaranScreen(bill: nextBill),
+                        ),
+                      );
+                    },
+                    child: Text('Bayar Sekarang'),
                   ),
                 ),
-                icon: Icon(Icons.history),
-                label: Text('Riwayat'),
-              ),
-            ],
-          ),
-          SizedBox(height: 18),
-          Text('Notifikasi', style: TextStyle(fontWeight: FontWeight.bold)),
-          SizedBox(height: 8),
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(12),
-              child: Text(
-                'Tagihan bulan April 2025 belum dibayar. Harap melakukan pembayaran sebelum 30 April 2025.',
-              ),
+              ],
             ),
           ),
-          SizedBox(height: 40),
+          const SizedBox(height: 20),
+
+          /* ---------------------- Notifikasi ---------------------- */
+          const Text(
+            'Notifikasi',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF7E5),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.amber.shade200),
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.notifications, color: Colors.black54),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Tagihan bulan April 2025 telah dibuat. Harap segera melakukan pembayaran sebelum 30 April 2025.',
+                        style: TextStyle(fontSize: 13, color: Colors.black87),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        '20 April 2025, 08:30',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 40),
         ],
       ),
     );
   }
 }
 
-/* --------------------------- Cek Tagihan Tab (Perbaikan Overflow) --------------------------- */
-class CekTagihanTab extends StatelessWidget {
-  final List<Map<String, dynamic>> bills;
-  const CekTagihanTab({required this.bills});
+/* ---------------------- Komponen Reusable ---------------------- */
+class _InfoRow extends StatelessWidget {
+  final String title;
+  final String value;
+  const _InfoRow({required this.title, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    return ListView.builder(
-      padding: EdgeInsets.all(16),
-      itemCount: bills.length,
-      itemBuilder: (_, i) {
-        final b = bills[i];
-        return Card(
-          margin: EdgeInsets.only(bottom: 12),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: ListTile(
-            // Mengurangi padding vertikal agar konten lebih rapat
-            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            title: Text(b['title']),
-            subtitle: Text('Jatuh Tempo: ${b['due']}'),
-            trailing: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              crossAxisAlignment: CrossAxisAlignment.end,
-              // Memastikan Column mengambil tinggi seminimal mungkin
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Rp ${b['amount']}',
-                  style: TextStyle(fontWeight: FontWeight.bold),
-                ),
-                SizedBox(height: 4),
-                // Menetapkan tinggi tetap dan ukuran teks kecil untuk tombol
-                SizedBox(
-                  height: 32, // Tinggi yang lebih ringkas
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 8,
-                      ), // Padding horizontal lebih kecil
-                    ),
-                    onPressed: b['status'] == 'Lunas'
-                        ? null
-                        : () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => PembayaranScreen(bill: b),
-                              ),
-                            );
-                          },
-                    child: Text(
-                      b['status'] == 'Lunas' ? 'Lunas' : 'Bayar Sekarang',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(title, style: const TextStyle(color: Colors.black54)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w500)),
+        ],
+      ),
     );
   }
 }
+
+class _QuickButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  const _QuickButton({required this.icon, required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 130,
+      height: 70,
+      decoration: BoxDecoration(
+        color: Colors.grey[100],
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black12, blurRadius: 4, offset: Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, color: Colors.black87),
+          const SizedBox(height: 4),
+          Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
+        ],
+      ),
+    );
+  }
+}
+
+/* --------------------------- Cek Tagihan Tab --------------------------- */
+class CekTagihanTab extends StatefulWidget {
+  final List<Map<String, dynamic>> bills;
+  const CekTagihanTab({required this.bills, super.key});
+
+  @override
+  State<CekTagihanTab> createState() => _CekTagihanTabState();
+}
+
+class _CekTagihanTabState extends State<CekTagihanTab> {
+  String selectedStatus = 'Semua';
+  String selectedTanggal = 'Terbaru';
+
+  @override
+  Widget build(BuildContext context) {
+    // Pisahkan data berdasarkan status
+    final belumDibayar = widget.bills
+        .where((b) => (b['status'] ?? '') == 'Belum Dibayar')
+        .toList();
+    final sudahDibayar = widget.bills
+        .where((b) => (b['status'] ?? '') == 'Sudah Dibayar')
+        .toList();
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        /* --------------------------- Summary --------------------------- */
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text(
+              "Summary",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            Text(
+              "April 2025",
+              style: TextStyle(color: Colors.grey[600], fontSize: 14),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _summaryCard(
+                title: "Tagihan yang\nbelum dibayar",
+                count: "${belumDibayar.length} Tagihan",
+                total:
+                    "Rp ${belumDibayar.fold<double>(0.0, (sum, b) => sum + (b['amount'] ?? 0.0)).toStringAsFixed(0)}",
+                color: Colors.green[700]!,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: _summaryCard(
+                title: "Tagihan yang\nsudah dibayar",
+                count: "${sudahDibayar.length} Tagihan",
+                total:
+                    "Rp ${sudahDibayar.fold<double>(0.0, (sum, b) => sum + (b['amount'] ?? 0.0)).toStringAsFixed(0)}",
+                color: Colors.black87,
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 20),
+
+        /* --------------------------- Filter Dropdown --------------------------- */
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: selectedStatus,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                ),
+                items: ['Semua', 'Belum Dibayar', 'Sudah Dibayar']
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (val) => setState(() => selectedStatus = val!),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: selectedTanggal,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                ),
+                items: ['Terbaru', 'Terlama']
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (val) => setState(() => selectedTanggal = val!),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        /* --------------------------- Daftar Tagihan --------------------------- */
+        ..._filteredBills().map((b) => _billCard(context, b)).toList(),
+      ],
+    );
+  }
+
+  /* --------------------------- Filter Function --------------------------- */
+  List<Map<String, dynamic>> _filteredBills() {
+    List<Map<String, dynamic>> filtered = List.from(widget.bills);
+
+    if (selectedStatus != 'Semua') {
+      filtered = filtered
+          .where((b) => (b['status'] ?? '') == selectedStatus)
+          .toList();
+    }
+
+    if (selectedTanggal == 'Terbaru') {
+      filtered = filtered.reversed.toList();
+    }
+
+    return filtered;
+  }
+
+  /* --------------------------- Widget: Summary Card --------------------------- */
+  Widget _summaryCard({
+    required String title,
+    required String count,
+    required String total,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.2),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: TextStyle(fontSize: 13, color: Colors.grey[700])),
+          const SizedBox(height: 8),
+          Text(count, style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(
+            total,
+            style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /* --------------------------- Widget: Bill Card --------------------------- */
+  Widget _billCard(BuildContext context, Map<String, dynamic> b) {
+    final bool isPaid = (b['status'] ?? '') == 'Sudah Dibayar';
+    final Color badgeColor = isPaid ? Colors.green : Colors.amber;
+    final String badgeText = isPaid ? 'Sudah Dibayar' : 'Belum Dibayar';
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.15),
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          /* ---------- Header ---------- */
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                (b['name'] ?? '').toString(),
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: badgeColor.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  badgeText,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: badgeColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            (b['phone'] ?? '').toString(),
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          Text(
+            'Tagihan #${(b['id'] ?? '').toString()}',
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            isPaid
+                ? 'Dibayar: ${(b['due'] ?? '').toString()}'
+                : 'Jatuh Tempo: ${(b['due'] ?? '').toString()}',
+            style: TextStyle(color: Colors.grey[700]),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Rp ${(b['amount'] ?? 0.0).toStringAsFixed(0)}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              if (!isPaid)
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  onPressed: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Bayar Tagihan #${b['id']}')),
+                    );
+                  },
+                  child: const Text("Bayar Sekarang"),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* --------------------------- Contoh Data --------------------------- */
+final List<Map<String, dynamic>> exampleBills = [
+  {
+    'name': 'Fathi Setiawan',
+    'phone': '+62 812 3456 7890',
+    'id': '12345',
+    'due': '30 April 2025',
+    'amount': 15000.0,
+    'status': 'Belum Dibayar',
+  },
+  {
+    'name': 'Fathi Setiawan',
+    'phone': '+62 812 3456 7890',
+    'id': '12346',
+    'due': '30 April 2025',
+    'amount': 15000.0,
+    'status': 'Sudah Dibayar',
+  },
+];
 
 /* --------------------------- Pembayaran Screen --------------------------- */
 class PembayaranScreen extends StatefulWidget {
@@ -810,7 +1071,17 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {
+                  onPressed: () async {
+                    _showProcessingDialog(
+                      context,
+                    ); // ⬅️ tampilkan dialog loading
+
+                    await Future.delayed(
+                      const Duration(seconds: 2),
+                    ); // simulasi proses 2 detik
+
+                    Navigator.pop(context); // ⬅️ tutup dialog loading
+
                     if (_method == 'QRIS') {
                       _showQrisConfirmationDialog(context, b);
                     } else {
@@ -843,6 +1114,41 @@ class _PembayaranScreenState extends State<PembayaranScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  void _showProcessingDialog(BuildContext context) {
+    showDialog(
+      barrierDismissible: false, // tidak bisa ditutup manual
+      context: context,
+      builder: (context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: const [
+                SizedBox(height: 16),
+                CircularProgressIndicator(),
+                SizedBox(height: 24),
+                Text(
+                  'Memproses Pembayaran',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'harap tunggu proses transaksi anda',
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 8),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1152,14 +1458,13 @@ class _RiwayatTabState extends State<RiwayatTab> {
                 child: DropdownButtonFormField<String>(
                   value:
                       [
-                        'Semua',
-                        'Terkonfirmasi',
-                        'Menunggu Pembayaran',
+                        'Sudah Dibayar',
+                        'Belum Dibayar',
                       ].contains(selectedStatus)
                       ? selectedStatus
                       : null,
                   decoration: InputDecoration(
-                    labelText: 'Status',
+                    labelText: 'Status Pembayaran',
                     labelStyle: TextStyle(color: Colors.green.shade700),
                     border: OutlineInputBorder(
                       borderSide: BorderSide(color: Colors.green.shade700),
@@ -1176,7 +1481,7 @@ class _RiwayatTabState extends State<RiwayatTab> {
                   ),
                   iconEnabledColor: Colors.green.shade700,
                   dropdownColor: Colors.green.shade50,
-                  items: ['Semua', 'Terkonfirmasi', 'Menunggu Pembayaran']
+                  items: ['Semua', 'Sudah Dibayar', 'Belum Dibayar']
                       .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                       .toList(),
                   onChanged: (val) {
@@ -1191,11 +1496,12 @@ class _RiwayatTabState extends State<RiwayatTab> {
               SizedBox(width: 12),
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  value: ['Terbaru', 'Terlama'].contains(selectedTanggal)
+                  value:
+                      ['Paling Jauh', 'Paling Dekat'].contains(selectedTanggal)
                       ? selectedTanggal
                       : null,
                   decoration: InputDecoration(
-                    labelText: 'Urutkan',
+                    labelText: 'Tanggal Jatuh Tempo',
                     labelStyle: TextStyle(color: Colors.green.shade700),
                     border: OutlineInputBorder(
                       borderSide: BorderSide(color: Colors.green.shade700),
@@ -1212,7 +1518,7 @@ class _RiwayatTabState extends State<RiwayatTab> {
                   ),
                   iconEnabledColor: Colors.green.shade700,
                   dropdownColor: Colors.green.shade50,
-                  items: ['Terbaru', 'Terlama']
+                  items: ['Paling Dekat', 'Paling Jauh']
                       .map((e) => DropdownMenuItem(value: e, child: Text(e)))
                       .toList(),
                   onChanged: (val) {
@@ -1416,61 +1722,178 @@ class ProfileTab extends StatelessWidget {
   }
 }
 
-/* --------------------------- Pembayaran Berhasil Page --------------------------- */
+/// ---------------- Pembayaran Berhasil Page ----------------
 class PembayaranBerhasilPage extends StatelessWidget {
   final Map<String, dynamic> bill;
   final String method;
 
-  const PembayaranBerhasilPage({required this.bill, required this.method});
+  const PembayaranBerhasilPage({
+    super.key,
+    required this.bill,
+    required this.method,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text('Pembayaran Berhasil'),
+        title: const Text('Pembayaran Berhasil'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(24.0),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const SizedBox(height: 40),
-            Icon(Icons.check_circle, color: Colors.green, size: 100),
-            const SizedBox(height: 16),
+            Text(
+              'Tagihan ${bill['id']} - Rp. ${bill['amount']}',
+              style: const TextStyle(fontSize: 15, color: Colors.black87),
+            ),
+            const SizedBox(height: 32),
+            const Icon(
+              Icons.check_circle_outline,
+              color: Colors.green,
+              size: 90,
+            ),
+            const SizedBox(height: 20),
             const Text(
-              'Pembayaran Berhasil!',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              'Terima Kasih! Pembayaran Anda telah diterima.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
             ),
             const SizedBox(height: 8),
-            Text(
-              'Tagihan ${bill['title']} telah dibayar via $method.',
+            const Text(
+              'Detail pembayaran telah dikirim ke WhatsApp anda.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey[700]),
+              style: TextStyle(fontSize: 13, color: Colors.grey),
             ),
-            const SizedBox(height: 40),
+            const SizedBox(height: 30),
+
+            /// ---------------- Detail Pembayaran ----------------
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Detail Pembayaran',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _InfoRow(title: 'Bill ID', value: bill['id'] ?? '-'),
+                  _InfoRow(
+                    title: 'Tanggal & Waktu',
+                    value: '26 April 2025, 23:59',
+                  ),
+                  _InfoRow(title: 'Metode', value: method),
+                  _InfoRow(title: 'Jumlah', value: 'Rp. ${bill['amount']}'),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        'Status',
+                        style: TextStyle(color: Colors.black54),
+                      ),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.green[50],
+                          borderRadius: BorderRadius.circular(6),
+                          border: Border.all(color: Colors.green.shade200),
+                        ),
+                        child: const Text(
+                          'Terkonfirmasi',
+                          style: TextStyle(
+                            color: Colors.green,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            /// ---------------- Bukti Pembayaran ----------------
+            Container(
+              width: double.infinity,
+              height: 200,
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: const Center(
+                child: Icon(Icons.image_outlined, size: 50, color: Colors.grey),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Tangkap Layar Bukti Pembayaran',
+              style: TextStyle(fontSize: 13, color: Colors.black54),
+            ),
+
+            const SizedBox(height: 30),
+
+            /// ---------------- Tombol Aksi ----------------
             SizedBox(
               width: double.infinity,
               child: ElevatedButton.icon(
-                icon: Icon(Icons.download),
-                label: const Text('Unduh Bukti Pembayaran'),
                 onPressed: () {
-                  showModalBottomSheet(
-                    context: context,
-                    shape: const RoundedRectangleBorder(
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(20),
-                      ),
-                    ),
-                    builder: (context) =>
-                        BuktiPembayaranBottomSheet(bill: bill, method: method),
-                  );
+                  _showBuktiDialog(context, bill, method);
                 },
+                icon: const Icon(Icons.download),
+                label: const Text('Unduh Bukti'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
               ),
             ),
             const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {},
+                icon: const Icon(Icons.share),
+                label: const Text('Kirim ke WhatsApp'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 18),
             TextButton(
               onPressed: () {
                 Navigator.pushAndRemoveUntil(
@@ -1479,8 +1902,30 @@ class PembayaranBerhasilPage extends StatelessWidget {
                   (route) => false,
                 );
               },
-              child: const Text('Kembali ke Dashboard'),
+              child: const Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: 'Kembali ke ',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                    TextSpan(
+                      text: 'Dashboard',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        color: Colors.green,
+                      ),
+                    ),
+                    TextSpan(
+                      text: ' untuk melihat tagihan lainnya',
+                      style: TextStyle(color: Colors.black54),
+                    ),
+                  ],
+                ),
+                textAlign: TextAlign.center,
+              ),
             ),
+            const SizedBox(height: 30),
           ],
         ),
       ),
@@ -1488,84 +1933,110 @@ class PembayaranBerhasilPage extends StatelessWidget {
   }
 }
 
-/* --------------------------- Bukti Pembayaran Bottom Sheet --------------------------- */
-class BuktiPembayaranBottomSheet extends StatelessWidget {
-  final Map<String, dynamic> bill;
-  final String method;
-
-  const BuktiPembayaranBottomSheet({required this.bill, required this.method});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      height: 330,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 50,
-              height: 5,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Bukti Pembayaran',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-          ),
-          const SizedBox(height: 12),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            title: Text(bill['title']),
-            subtitle: Text('Metode: $method'),
-            trailing: Text(
-              'Rp ${bill['amount']}',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ),
-          const Divider(),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+/// ---------------- Dialog Bukti Pembayaran ----------------
+void _showBuktiDialog(
+  BuildContext context,
+  Map<String, dynamic> bill,
+  String method,
+) {
+  showDialog(
+    context: context,
+    builder: (context) {
+      return Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Tanggal Pembayaran:'),
-              Text(
-                '${DateTime.now().day}-${DateTime.now().month}-${DateTime.now().year}',
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('ID Transaksi:'),
-              Text('#TRX${Random().nextInt(99999).toString().padLeft(5, '0')}'),
-            ],
-          ),
-          const Spacer(),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Bukti pembayaran telah diunduh (dummy)'),
+              /// Header
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Bukti Pembayaran',
+                    style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
                   ),
-                );
-              },
-              child: const Text('Simpan ke Galeri'),
-            ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.black54),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+
+              /// Isi Detail
+              _InfoRow(title: 'Tanggal', value: '1 April 2025'),
+              _InfoRow(title: 'Nominal', value: 'Rp. ${bill['amount']}'),
+              _InfoRow(title: 'Metode', value: method),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Status', style: TextStyle(color: Colors.black54)),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.green[50],
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.green.shade200),
+                    ),
+                    child: const Text(
+                      'Terkonfirmasi',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              const Text('Keterangan', style: TextStyle(color: Colors.black54)),
+              const SizedBox(height: 4),
+              const Text(
+                'Pembayaran iuran sampah bulan untuk periode April 2025',
+                style: TextStyle(color: Colors.black87),
+              ),
+              const SizedBox(height: 10),
+              _InfoRow(title: 'Tagihan', value: '#12346'),
+
+              const SizedBox(height: 20),
+
+              /// Tombol Unduh Bukti
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Bukti berhasil diunduh!'),
+                        backgroundColor: Colors.green,
+                      ),
+                    );
+                  },
+                  icon: const Icon(Icons.download),
+                  label: const Text('Unduh Bukti'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    );
-  }
+        ),
+      );
+    },
+  );
 }
 
 /* --------------------------- Logout Confirmation --------------------------- */
