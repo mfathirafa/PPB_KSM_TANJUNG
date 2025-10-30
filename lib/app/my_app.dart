@@ -10,6 +10,7 @@ class MyApp extends StatelessWidget {
 
     return MaterialApp(
       title: 'KSM Tanjung Demo',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         primaryColor: whatsappGreen,
         colorScheme: ColorScheme.fromSeed(

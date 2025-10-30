@@ -13,7 +13,8 @@ dependencies:
     sdk: flutter
   google_fonts: ^6.3.2
   qr_flutter: ^4.1.0
-  cupertino_icons: ^1.0.8  # pindahkan ke sini (di bawah dependencies)
+  cupertino_icons: ^1.0.8
+  font_awesome_flutter: ^10.7.0
 
 dev_dependencies:
   flutter_test:
@@ -23,5 +24,6 @@ flutter:
   uses-material-design: true
 
   assets:
-    - assets/QR.jpg
-    
+    - assets/qr.jpg
+    - assets/ksmlogo.png
+    - assets/wa.png

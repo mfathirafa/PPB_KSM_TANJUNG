@@ -137,7 +137,7 @@ class _QrisPaymentPageState extends State<QrisPaymentPage> {
               child: Column(
                 children: [
                   Image.asset(
-                    'assets/QR.jpg',
+                    'assets/qr.jpg',
                     height: 160,
                     width: 160,
                     fit: BoxFit.contain,
