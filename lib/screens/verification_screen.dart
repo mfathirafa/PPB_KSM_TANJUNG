@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
 import '../models/dummy_data.dart';
+import 'dashboard_admin_screen.dart';
 import 'dashboard_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class VerificationScreen extends StatefulWidget {
   final String phone;
   final String otp;
-  const VerificationScreen({required this.phone, required this.otp, super.key});
+  final String role;
+
+  const VerificationScreen({
+    required this.phone,
+    required this.otp,
+    this.role = "customer",
+    super.key,
+  });
 
   @override
   State<VerificationScreen> createState() => _VerificationScreenState();
@@ -33,19 +41,30 @@ class _VerificationScreenState extends State<VerificationScreen> {
 
   void _verify() {
     final code = controllers.map((c) => c.text).join();
+
     if (code == widget.otp) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Verifikasi Berhasil! (dummy)')),
       );
-      Navigator.pushAndRemoveUntil(
-        context,
-        MaterialPageRoute(builder: (_) => const DashboardScreen()),
-        (route) => false,
-      );
+
+      // ✅ Redirect sesuai role
+      if (widget.role == "admin") {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const DashboardAdminScreen()),
+          (route) => false,
+        );
+      } else {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          (route) => false,
+        );
+      }
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Kode Verifikasi Salah!')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kode Verifikasi Salah!')),
+      );
     }
   }
 
@@ -97,7 +116,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
             FaIcon(FontAwesomeIcons.whatsapp, color: whatsappGreen, size: 60),
             const SizedBox(height: 20),
 
-            // Judul dan Deskripsi
             const Text(
               'Verifikasi dengan WhatsApp',
               style: TextStyle(
@@ -108,6 +126,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 10),
+
             Text(
               'Masukkan Kode Verifikasi yang telah dikirim ke nomor ${widget.phone}',
               style: const TextStyle(fontSize: 16, color: Colors.grey),
@@ -115,7 +134,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
             ),
             const SizedBox(height: 30),
 
-            // Kotak Input Kode Verifikasi (OTP)
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(6, (i) {
@@ -162,7 +180,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
             ),
             const SizedBox(height: 30),
 
-            // Tombol "Verifikasi Kode"
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -184,7 +201,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Kotak informasi
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(15),
@@ -207,7 +223,6 @@ class _VerificationScreenState extends State<VerificationScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Link Syarat & Ketentuan dan Kebijakan Privasi
             RichText(
               textAlign: TextAlign.center,
               text: TextSpan(
@@ -243,11 +258,11 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   ),
                 );
               },
-              child: const Text('Kirim ulang kode'),
               style: TextButton.styleFrom(
                 foregroundColor: whatsappGreen,
                 textStyle: const TextStyle(fontWeight: FontWeight.bold),
               ),
+              child: const Text('Kirim ulang kode'),
             ),
             const SizedBox(height: 20),
           ],

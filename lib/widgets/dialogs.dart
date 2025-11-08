@@ -1,10 +1,9 @@
-// lib/widgets/dialogs.dart
 import 'package:flutter/material.dart';
 import '../screens/welcome_screen.dart';
 import '../screens/dashboard_screen.dart';
 import '../screens/qris_payment_page.dart';
 import '../screens/pembayaran_berhasil_page.dart';
-import 'info_row.dart'; // Jika InfoRow digunakan di dalam dialog
+import 'info_row.dart';
 
 /// ---------------- Dialog Pemrosesan ----------------
 void showProcessingDialog(BuildContext context) {
