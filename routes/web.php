@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\PelangganController;
+use App\Http\Controllers\AuthController;
+
 
 Route::get('/', function () {
     return view('welcome');
@@ -16,3 +18,7 @@ Route::get('/contact', function() {
 });
 
 Route::resource('pelanggans', PelangganController::class);
+
+Route::post('/send-otp', [AuthController::class, 'sendOtp']);
+Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
+
