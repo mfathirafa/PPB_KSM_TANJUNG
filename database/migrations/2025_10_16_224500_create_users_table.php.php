@@ -13,13 +13,16 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id('user_id');
-            $table->string('nama', 100);
-            $table->string('email', 100);
-            $table->string('password', 100);
-            $table->enum('role', ['admin', 'pelanggan']);
+            $table->string('name')->nullable();
+            $table->string('phone')->unique();
+            $table->enum('role', ['admin','customer'])->default('customer');
+
+            // OTP LOGIN
+            $table->string('otp')->nullable();
+            $table->timestamp('otp_expires_at')->nullable();
+
             $table->timestamps();
         });
-
     }
 
     /**

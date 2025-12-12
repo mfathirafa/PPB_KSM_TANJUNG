@@ -1,31 +1,40 @@
 <?php
 
+namespace App\Models;
+
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Tagihan extends Model
 {
-  use HasFactory;
+    use HasFactory;
 
-  protected $table = 'tagihans';
-  protected $primaryKey = 'id_tagihan';
-  public $timestamps = false;
+    protected $primaryKey = 'id_tagihan';
 
-  protected $fillable = [
-    'id_pelanggan',
-    'Tanggal',
-    'Jumlah',
-    'Status'
-  ];
+    protected $fillable = [
+        'pelanggan_id',
+        'jumlah',
+        'status',
+        'tanggal',
+        'due_date',
+        'bulan',
+        'tahun',
+    ];
 
-  public function pelanggan()
-  {
-    return $this->belongsTo(Pelanggan::class, 'id_pelanggan');
-  }
+    protected $casts = [
+        'tanggal' => 'date',
+        'due_date' => 'date',
+    ];
 
-  public function pembayaran()
-  {
-    return $this->hasMany(Pembayaran::class, 'id_tagihan');
-  }
+    // Tagihan milik 1 pelanggan
+    public function pelanggan()
+    {
+        return $this->belongsTo(Pelanggan::class, 'pelanggan_id', 'id_pelanggan');
+    }
 
+    // Tagihan punya banyak pembayaran
+    public function pembayaran()
+    {
+        return $this->hasMany(Pembayaran::class, 'tagihan_id', 'id_tagihan');
+    }
 }

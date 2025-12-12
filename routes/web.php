@@ -19,6 +19,4 @@ Route::get('/contact', function() {
 
 Route::resource('pelanggans', PelangganController::class);
 
-Route::post('/send-otp', [AuthController::class, 'sendOtp']);
-Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 

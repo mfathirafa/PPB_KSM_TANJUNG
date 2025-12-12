@@ -5,31 +5,26 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 
-class PelangganController extends Controller
+class TagihanAdminController extends Controller
 {
     public function index()
     {
-        // ambil semua pelanggan
+        // list semua tagihan untuk tabel admin
     }
 
     public function store(Request $request)
     {
         // validasi
-        // buat user + pelanggan
-    }
-
-    public function show($id)
-    {
-        // ambil detail pelanggan
+        // create tagihan baru
     }
 
     public function update(Request $request, $id)
     {
-        // update data pelanggan
+        // update tagihan
     }
 
     public function destroy($id)
     {
-        // hapus pelanggan
+        // hapus tagihan
     }
 }

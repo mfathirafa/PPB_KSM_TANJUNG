@@ -9,36 +9,37 @@ class User extends Model
 {
     use HasFactory;
 
-    protected $table = 'users';
     protected $primaryKey = 'user_id';
-    public $timestamps = true;
-
     protected $fillable = [
-        'nama',
-        'email',
-        'password',
-        'role'
+        'name',
+        'phone',
+        'role',
+        'otp',
+        'otp_expires_at',
     ];
 
-    // 1 user bisa punya banyak notifikasi
-    public function admin()
-    {
-        return $this->hasOne(Admin::class, 'user_id');
-    }
+    protected $hidden = [
+        'otp',
+        'otp_expires_at',
+    ];
+
+    protected $casts = [
+        'otp_expires_at' => 'datetime',
+    ];
+
+    // ==========================
+    // RELASI
+    // ==========================
+
+    // Seorang user customer memiliki 1 data pelanggan
     public function pelanggan()
     {
-        return $this->hasOne(Pelanggan::class, 'user_id');
+        return $this->hasOne(Pelanggan::class, 'user_id', 'user_id');
     }
-    public function notifikasi()
-    {
-        return $this->hasMany(Notifikasi::class, 'user_id');
-    }
-    public function laporan_keuangan()
-    {
-        return $this->hasMany(Laporan_Keuangan::class, 'user_id');
-    }
+
+    // User customer punya banyak pembayaran
     public function pembayaran()
     {
-        return $this->hasMany(Pembayaran::class, 'user_id');
+        return $this->hasMany(Pembayaran::class, 'user_id', 'user_id');
     }
 }

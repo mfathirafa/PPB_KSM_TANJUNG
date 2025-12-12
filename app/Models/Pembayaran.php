@@ -7,26 +7,28 @@ use Illuminate\Database\Eloquent\Model;
 
 class Pembayaran extends Model
 {
-  use HasFactory;
-  protected $table = 'pembayarans';
-  protected $primaryKey = 'id_pembayaran';
-  public $timestamps = false;
+    use HasFactory;
 
-  protected $fillable = [
-    'id_tagihan',
-    'user_id',
-    'tanggal',
-    'jumlah_Bayar',
-    'metode'
-  ];
+    protected $primaryKey = 'id_pembayaran';
 
-  public function tagihan()
-  {
-    return $this->belongsTo(Tagihan::class, 'id_tagihan');
-  }
+    protected $fillable = [
+        'tagihan_id',
+        'user_id',
+        'nominal',
+        'metode',
+        'bukti_path',
+        'status',
+    ];
 
-  public function user()
-  {
-    return $this->belongsTo(User::class, 'user_id');
-  }
+    // Pembayaran milik satu tagihan
+    public function tagihan()
+    {
+        return $this->belongsTo(Tagihan::class, 'tagihan_id', 'id_tagihan');
+    }
+
+    // Pembayaran dilakukan oleh user (pelanggan)
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'user_id', 'user_id');
+    }
 }

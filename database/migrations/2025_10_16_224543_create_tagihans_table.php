@@ -15,13 +15,20 @@ return new class extends Migration
             $table->id('id_tagihan');
             $table->unsignedBigInteger('pelanggan_id');
 
-            $table->date('tanggal');
-            $table->integer('jumlah');
-            $table->string('status', 20);
+            $table->integer('jumlah');               // nominal
+            $table->enum('status', ['unpaid','paid','pending'])->default('unpaid');
+
+            $table->date('tanggal');                 // tanggal dibuat
+            $table->date('due_date');                // jatuh tempo
+            $table->string('bulan');                 // 'April'
+            $table->string('tahun');                 // '2025'
+
             $table->timestamps();
 
-            $table->foreign('pelanggan_id')->references('id_pelanggan')->on('pelanggans')->onDelete('cascade');
+            $table->foreign('pelanggan_id')
+                ->references('id_pelanggan')->on('pelanggans')->onDelete('cascade');
         });
+
 
     }
 

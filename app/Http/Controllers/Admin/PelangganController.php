@@ -1,35 +1,35 @@
 <?php
 
-namespace App\Http\Controllers\Admin;
+namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Models\Pelanggan;
+use App\Models\User;
 
 class PelangganController extends Controller
 {
     public function index()
     {
-        // ambil semua pelanggan
+        // List semua pelanggan
     }
 
     public function store(Request $request)
     {
-        // validasi
-        // buat user + pelanggan
+        // Tambah pelanggan
     }
 
     public function show($id)
     {
-        // ambil detail pelanggan
+        // Detail pelanggan
     }
 
     public function update(Request $request, $id)
     {
-        // update data pelanggan
+        // Update data pelanggan
     }
 
     public function destroy($id)
     {
-        // hapus pelanggan
+        // Hapus pelanggan
     }
 }

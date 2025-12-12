@@ -6,43 +6,25 @@ use Illuminate\Http\Request;
 
 class AuthController extends Controller
 {
-  public function sendOtp(Request $request)
-  {
-    $request->validate([
-      'phone' => 'required'
-    ]);
-
-    $otp = rand(100000, 999999);
-
-    session(['otp' => $otp, 'phone' => $request->phone]);
-
-    return response()->json([
-      'success' => true,
-      'message' => 'OTP terkirim (dummy)',
-      'otp' => $otp // buat tes dulu di flutter
-    ]);
-  }
-  
-  public function verifyOtp(Request $request)
-  {
-    $request->validate([
-      'phone' => 'required',
-      'otp' => 'required'
-    ]);
-
-    if (
-      session('phone') == $request->phone &&
-      session('otp') == $request->otp
-    ) {
-      return response()->json([
-        'success' => true,
-        'message' => 'OTP valid!'
-      ]);
+    public function sendOtp(Request $request)
+    {
+        // validasi nomor
+        // generate OTP
+        // simpan ke DB (otps)
+        // return success + otp dummy
     }
-    return response()->json([
-      'success' => false,
-      'message' => 'OTP salah atau tidak cocok'
-    ], 400);
-  }
-}
 
+    public function verifyOtp(Request $request)
+    {
+        // cek OTP
+        // login/create user
+        // buat Sanctum token
+        // return user + token
+    }
+
+    public function logout(Request $request)
+    {
+        // hapus token login
+        return response()->json(['message' => 'Logged out']);
+    }
+}

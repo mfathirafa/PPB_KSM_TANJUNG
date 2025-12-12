@@ -11,16 +11,11 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('pelanggans', function (Blueprint $table) {
-            $table->id('id_pelanggan');
-            $table->unsignedBigInteger('user_id');
-
-            $table->string('alamat')->nullable();
-            $table->string('no_hp')->nullable();
-
+        Schema::create('settings', function (Blueprint $table) {
+            $table->id();
+            $table->string('key');
+            $table->string('value')->nullable();
             $table->timestamps();
-
-            $table->foreign('user_id')->references('user_id')->on('users')->onDelete('cascade');
         });
 
     }
@@ -30,6 +25,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('pelanggans');
+        Schema::dropIfExists('settings');
     }
 };
