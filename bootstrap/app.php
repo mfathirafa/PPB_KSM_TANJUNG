@@ -4,6 +4,10 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 
+// Tambahkan ini
+use App\Http\Middleware\AdminMiddleware;
+use App\Http\Middleware\RoleMiddleware;
+
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
@@ -11,21 +15,36 @@ return Application::configure(basePath: dirname(__DIR__))
         commands: __DIR__.'/../routes/console.php',
         health: '/up',
     )
+
     ->withMiddleware(function (Middleware $middleware): void {
 
-    // Aktifkan session untuk API route
-        $middleware->web(append: [
-            \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
-            \Illuminate\Session\Middleware\StartSession::class,
-        ]);
-            // Kalau perlu, aktifkan juga untuk web
-
-        $middleware->api(prepend: [
+        /*
+        |--------------------------------------------------------------------------
+        | Session untuk API (dibutuhkan Flutter login OTP)
+        |--------------------------------------------------------------------------
+        */
+        $middleware->api(append: [
             \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
             \Illuminate\Session\Middleware\StartSession::class,
         ]);
 
-        // CSRF exception biarkan tetap
+
+        /*
+        |--------------------------------------------------------------------------
+        | Register Middleware Alias
+        |--------------------------------------------------------------------------
+        */
+        $middleware->alias([
+            'admin' => AdminMiddleware::class,
+            'role' => RoleMiddleware::class, // opsional
+        ]);
+
+
+        /*
+        |--------------------------------------------------------------------------
+        | CSRF Exceptions (untuk web)
+        |--------------------------------------------------------------------------
+        */
         $middleware->validateCsrfTokens(except: [
             'send-otp',
             'verify-otp',
@@ -34,4 +53,6 @@ return Application::configure(basePath: dirname(__DIR__))
 
     ->withExceptions(function (Exceptions $exceptions): void {
         //
-    })->create();
+    })
+
+    ->create();

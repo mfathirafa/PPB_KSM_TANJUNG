@@ -20,12 +20,12 @@ class Pelanggan extends Model
     // Pelanggan milik 1 user
     public function user()
     {
-        return $this->belongsTo(User::class, 'user_id', 'user_id');
+        return $this->belongsTo(User::class, 'user_id');
     }
 
     // Pelanggan punya banyak tagihan
     public function tagihans()
     {
-        return $this->hasMany(Tagihan::class, 'pelanggan_id', 'id_pelanggan');
+        return $this->hasMany(Tagihan::class, 'pelanggan_id');
     }
 }

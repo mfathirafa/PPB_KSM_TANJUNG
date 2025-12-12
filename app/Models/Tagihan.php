@@ -32,7 +32,7 @@ class Tagihan extends Model
         return $this->belongsTo(Pelanggan::class, 'pelanggan_id', 'id_pelanggan');
     }
 
-    // Tagihan punya banyak pembayaran
+    // Tagihan punya banyak pembayaran (lebih logis daripada hasOne)
     public function pembayaran()
     {
         return $this->hasMany(Pembayaran::class, 'tagihan_id', 'id_tagihan');

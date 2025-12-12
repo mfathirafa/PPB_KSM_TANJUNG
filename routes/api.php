@@ -1,6 +1,35 @@
 <?php
 
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+
+/*
+|--------------------------------------------------------------------------
+| AUTH CONTROLLERS
+|--------------------------------------------------------------------------
+*/
+use App\Http\Controllers\AuthController;
+
+/*
+|--------------------------------------------------------------------------
+| CUSTOMER CONTROLLERS
+|--------------------------------------------------------------------------
+*/
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\CustomerTagihanController;
+use App\Http\Controllers\PembayaranController;
+use App\Http\Controllers\NotifikasiController;
+
+/*
+|--------------------------------------------------------------------------
+| ADMIN CONTROLLERS
+|--------------------------------------------------------------------------
+*/
+use App\Http\Controllers\Admin\PelangganController;
+use App\Http\Controllers\Admin\TagihanAdminController;
+use App\Http\Controllers\Admin\PembayaranAdminController;
+use App\Http\Controllers\Admin\SettingsController;
+use App\Http\Controllers\Admin\LaporanController;
 
 /*
 |--------------------------------------------------------------------------
@@ -9,7 +38,6 @@ use Illuminate\Support\Facades\Route;
 */
 Route::post('/send-otp', [AuthController::class, 'sendOtp']);
 Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
-
 
 /*
 |--------------------------------------------------------------------------
@@ -22,48 +50,80 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [UserController::class, 'me']);
 
     // Tagihan user
-    Route::get('/tagihan', [TagihanController::class, 'getUserTagihan']);
+    Route::get('/tagihan', [CustomerTagihanController::class, 'index']);
 
     // Pembayaran user
-    Route::post('/pembayaran/{tagihan_id}', [PembayaranController::class, 'bayar']);
-    Route::get('/pembayaran/riwayat', [PembayaranController::class, 'riwayat']);
+    Route::post('/pembayaran/create', [PembayaranController::class, 'create']);
+    Route::post('/pembayaran/upload-bukti', [PembayaranController::class, 'uploadBukti']);
+    Route::get('/pembayaran/riwayat', [PembayaranController::class, 'riwayatCustomer']);
 
     // Logout
     Route::post('/logout', [AuthController::class, 'logout']);
-});
+    Route::post('/notifikasi/tagihan', [NotifikasiController::class, 'tagihan']);
+    Route::post('/notifikasi/pembayaran', [NotifikasiController::class, 'pembayaran']);
 
+    Route::get('/notifikasi', [NotifikasiController::class, 'list']);
+    Route::patch('/notifikasi/{id}/read', [NotifikasiController::class, 'markRead']);
+});
 
 /*
 |--------------------------------------------------------------------------
 | ADMIN AREA (AUTH + ADMIN MIDDLEWARE)
 |--------------------------------------------------------------------------
 */
-Route::middleware(['auth:sanctum', 'admin'])->group(function () {
+Route::middleware(['auth:sanctum', 'admin'])
+    ->prefix('admin')
+    ->group(function () {
+        // Dashboard Admin
+        Route::get('/dashboard', [DashboardAdminController::class, 'index']);
 
-    // ------------------ Pelanggan ------------------
-    Route::get('/admin/pelanggan', [PelangganController::class, 'index']);
-    Route::post('/admin/pelanggan', [PelangganController::class, 'store']);
-    Route::get('/admin/pelanggan/{id}', [PelangganController::class, 'show']);
-    Route::put('/admin/pelanggan/{id}', [PelangganController::class, 'update']);
-    Route::delete('/admin/pelanggan/{id}', [PelangganController::class, 'destroy']);
+    
 
-    // ------------------ Tagihan ------------------
-    Route::get('/admin/tagihan', [TagihanAdminController::class, 'index']);
-    Route::post('/admin/tagihan', [TagihanAdminController::class, 'store']);
-    Route::put('/admin/tagihan/{id}', [TagihanAdminController::class, 'update']);
-    Route::delete('/admin/tagihan/{id}', [TagihanAdminController::class, 'destroy']);
+        /*
+        |--------------------------------------------------------------------------
+        | PELANGGAN CRUD
+        |--------------------------------------------------------------------------
+        */
+        Route::get('/pelanggan', [PelangganController::class, 'index']);
+        Route::post('/pelanggan', [PelangganController::class, 'store']);
+        Route::get('/pelanggan/{id}', [PelangganController::class, 'show']);
+        Route::put('/pelanggan/{id}', [PelangganController::class, 'update']);
+        Route::delete('/pelanggan/{id}', [PelangganController::class, 'destroy']);
 
-    // ------------------ Pembayaran ------------------
-    Route::get('/admin/pembayaran', [PembayaranAdminController::class, 'index']);
-    Route::put('/admin/pembayaran/{id}/approve', [PembayaranAdminController::class, 'approve']);
-    Route::put('/admin/pembayaran/{id}/reject', [PembayaranAdminController::class, 'reject']);
+        /*
+        |--------------------------------------------------------------------------
+        | TAGIHAN CRUD
+        |--------------------------------------------------------------------------
+        */
+        Route::get('/tagihan', [TagihanAdminController::class, 'index']);
+        Route::post('/tagihan', [TagihanAdminController::class, 'store']);
+        Route::get('/tagihan/{id}', [TagihanAdminController::class, 'show']);
+        Route::put('/tagihan/{id}', [TagihanAdminController::class, 'update']);
+        Route::delete('/tagihan/{id}', [TagihanAdminController::class, 'destroy']);
 
-    // ------------------ Laporan ------------------
-    Route::get('/admin/laporan/summary', [LaporanController::class, 'summary']);
-    Route::get('/admin/laporan/transaksi', [LaporanController::class, 'transaksi']);
+        /*
+        |--------------------------------------------------------------------------
+        | PEMBAYARAN (ADMIN)
+        |--------------------------------------------------------------------------
+        */
+        Route::get('/pembayaran', [PembayaranAdminController::class, 'index']);
+        Route::put('/pembayaran/{id}/approve', [PembayaranAdminController::class, 'approve']);
+        Route::put('/pembayaran/{id}/reject', [PembayaranAdminController::class, 'reject']);
 
-    // ------------------ Settings ------------------
-    Route::get('/admin/settings', [SettingsController::class, 'show']);
-    Route::put('/admin/settings', [SettingsController::class, 'update']);
-    Route::post('/admin/settings/regenerate-jwt', [SettingsController::class, 'regenerateJwt']);
-});
+        /*
+        |--------------------------------------------------------------------------
+        | LAPORAN
+        |--------------------------------------------------------------------------
+        */
+        Route::get('/laporan/summary', [LaporanController::class, 'summary']);
+        Route::get('/laporan/transaksi', [LaporanController::class, 'transaksi']);
+
+        /*
+        |--------------------------------------------------------------------------
+        | SETTINGS
+        |--------------------------------------------------------------------------
+        */
+        Route::get('/settings', [SettingsController::class, 'show']);
+        Route::put('/settings', [SettingsController::class, 'update']);
+        Route::post('/settings/regenerate-jwt', [SettingsController::class, 'regenerateJwt']);
+    });
