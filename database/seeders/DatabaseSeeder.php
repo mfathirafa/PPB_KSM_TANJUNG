@@ -8,9 +8,16 @@ use Illuminate\Support\Facades\Hash;
 
 class DatabaseSeeder extends Seeder
 {
-    public function run(): void
+public function run(): void
     {
-        // Jalankan AdminSeeder
-        $this->call(AdminSeeder::class);
+        $this->call([
+            UserSeeder::class,
+            PelangganSeeder::class,
+            TagihanSeeder::class,
+            PembayaranSeeder::class,
+        ]);
     }
+
+
+
 }

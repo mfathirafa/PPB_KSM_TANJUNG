@@ -2,6 +2,8 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Schedule;
+
 
 /*
 |--------------------------------------------------------------------------
@@ -20,6 +22,8 @@ use App\Http\Controllers\CustomerTagihanController;
 use App\Http\Controllers\PembayaranController;
 use App\Http\Controllers\NotifikasiController;
 
+
+
 /*
 |--------------------------------------------------------------------------
 | ADMIN CONTROLLERS
@@ -30,6 +34,11 @@ use App\Http\Controllers\Admin\TagihanAdminController;
 use App\Http\Controllers\Admin\PembayaranAdminController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\LaporanController;
+use App\Http\Controllers\Admin\DashboardAdminController;
+
+Schedule::command('report:generate-monthly')
+    ->monthlyOn(1, '00:05');
+
 
 /*
 |--------------------------------------------------------------------------
@@ -44,11 +53,13 @@ Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 | CUSTOMER AREA (AUTH REQUIRED)
 |--------------------------------------------------------------------------
 */
+
 Route::middleware('auth:sanctum')->group(function () {
 
     // Profile
-    Route::get('/me', [UserController::class, 'me']);
-
+     Route::get('/me', function (Request $request) {
+        return response()->json($request->user());
+    });
     // Tagihan user
     Route::get('/tagihan', [CustomerTagihanController::class, 'index']);
 
@@ -114,9 +125,9 @@ Route::middleware(['auth:sanctum', 'admin'])
         |--------------------------------------------------------------------------
         | LAPORAN
         |--------------------------------------------------------------------------
-        */
-        Route::get('/laporan/summary', [LaporanController::class, 'summary']);
-        Route::get('/laporan/transaksi', [LaporanController::class, 'transaksi']);
+                */
+        Route::get('/admin/laporan-keuangan', [LaporanKeuanganController::class, 'index']);
+        Route::get('/admin/laporan-keuangan/{periode}', [LaporanKeuanganController::class, 'show']);
 
         /*
         |--------------------------------------------------------------------------

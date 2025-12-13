@@ -2,14 +2,14 @@
 
 namespace App\Models;
 
+use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
+use Laravel\Sanctum\HasApiTokens;
 
-class User extends Model
+class User extends Authenticatable
 {
-    use HasFactory;
+    use HasApiTokens, HasFactory;
 
-    protected $primaryKey = 'user_id';
     protected $fillable = [
         'name',
         'phone',
@@ -31,15 +31,13 @@ class User extends Model
     // RELASI
     // ==========================
 
-    // Seorang user customer memiliki 1 data pelanggan
     public function pelanggan()
     {
-        return $this->hasOne(Pelanggan::class, 'user_id', 'user_id');
+        return $this->hasOne(Pelanggan::class);
     }
 
-    // User customer punya banyak pembayaran
     public function pembayaran()
     {
-        return $this->hasMany(Pembayaran::class, 'user_id', 'user_id');
+        return $this->hasMany(Pembayaran::class);
     }
 }
