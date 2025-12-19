@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../models/dummy_data.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dashboard_admin_screen.dart';
 import 'dashboard_screen.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
@@ -39,33 +40,42 @@ class _VerificationScreenState extends State<VerificationScreen> {
     super.dispose();
   }
 
-  void _verify() {
-    final code = controllers.map((c) => c.text).join();
+void _verify() async {
+  final code = controllers.map((c) => c.text).join();
 
-    if (code == widget.otp) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Verifikasi Berhasil! (dummy)')),
+  final response = await http.post(
+    Uri.parse('${ApiConfig.baseUrl}/verify-otp'),
+    headers: {'Content-Type': 'application/json'},
+    body: jsonEncode({
+      'phone': widget.phone,
+      'otp': code,
+    }),
+  );
+
+  if (response.statusCode == 200) {
+    final data = jsonDecode(response.body);
+    final token = data['token'];
+    final role = data['role'];
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('token', token);
+    await prefs.setString('role', role);
+
+    if (role == 'admin') {
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const DashboardAdminScreen()),
       );
-
-      // ✅ Redirect sesuai role
-      if (widget.role == "admin") {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const DashboardAdminScreen()),
-          (route) => false,
-        );
-      } else {
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
-          (route) => false,
-        );
-      }
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kode Verifikasi Salah!')),
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (_) => const DashboardScreen()),
       );
     }
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('OTP salah / kadaluarsa')),
+    );
   }
 
   @override
