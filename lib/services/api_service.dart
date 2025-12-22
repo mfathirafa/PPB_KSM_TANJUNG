@@ -10,7 +10,10 @@ class ApiService {
 
     return http.get(
       Uri.parse('${ApiConfig.baseUrl}$endpoint'),
-      headers: {'Authorization': 'Bearer $token', 'Accept': 'application/json'},
+      headers: {
+        'Authorization': 'Bearer $token',
+        'Accept': 'application/json',
+      },
     );
   }
 }
