@@ -9,10 +9,15 @@ return new class extends Migration {
     {
     Schema::create('pelanggans', function (Blueprint $table) {
         $table->id();
-        $table->foreignId('user_id')->constrained()->cascadeOnDelete();
-        $table->string('nama', 200);
+
+        $table->foreignId('user_id')
+            ->constrained()
+            ->cascadeOnDelete();
+
+        $table->string('nama');
         $table->string('alamat');
         $table->string('no_hp', 20);
+
         $table->timestamps();
     });
 

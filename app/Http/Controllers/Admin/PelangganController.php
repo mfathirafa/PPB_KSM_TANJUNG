@@ -1,103 +1,146 @@
 <?php
 
-namespace App\Http\Controllers;
+namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\Pelanggan;
 use App\Models\User;
-
+use App\Models\Pelanggan;
+use Illuminate\Support\Facades\DB;
 
 class PelangganController extends Controller
 {
+    /**
+     * GET /admin/pelanggan
+     * List semua pelanggan
+     */
     public function index()
     {
-        $data = Pelanggan::with('user')->get();
+        $pelanggans = Pelanggan::with('user')
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($p) {
+                return [
+                    'id'        => $p->id,
+                    'nama'      => $p->nama,
+                    'phone'     => $p->no_hp,
+                    'alamat'    => $p->alamat,
+                    'user_id'   => $p->user_id,
+                    'created_at' => $p->created_at->format('Y-m-d'),
+                ];
+            });
 
-        return response()->json([
-            'pelanggan' => $data
-        ]);
+        return response()->json($pelanggans);
     }
 
+    /**
+     * POST /admin/pelanggan
+     * Admin membuat pelanggan baru
+     */
     public function store(Request $request)
     {
         $request->validate([
-            'name'   => 'required',
-            'phone'  => 'required|unique:users,phone',
-            'alamat' => 'nullable|string',
+            'nama'   => 'required|string|max:200',
+            'phone'  => 'required|string|max:20|unique:users,phone',
+            'alamat' => 'required|string',
         ]);
 
-        // 1) BUAT USER
-        $user = User::create([
-            'name'  => $request->name,
-            'phone' => $request->phone,
-            'role'  => 'customer'
-        ]);
+        DB::beginTransaction();
 
-        // 2) BUAT PELANGGAN
-        $pelanggan = Pelanggan::create([
-            'user_id' => $user->user_id,
-            'alamat'  => $request->alamat,
-            'no_hp'   => $request->phone,
-        ]);
+        try {
+            // 1️⃣ Buat user customer
+            $user = User::create([
+                'name'  => $request->nama,
+                'phone' => $request->phone,
+                'role'  => 'customer',
+            ]);
 
-        return response()->json([
-            'message'   => 'Pelanggan created',
-            'pelanggan' => $pelanggan->load('user')
-        ], 201);
-    }
+            // 2️⃣ Buat pelanggan
+            $pelanggan = Pelanggan::create([
+                'user_id' => $user->id,
+                'nama'    => $request->nama,
+                'alamat'  => $request->alamat,
+                'no_hp'   => $request->phone,
+            ]);
 
-    public function show($id)
-    {
-        $data = Pelanggan::with('user')->find($id);
+            DB::commit();
 
-        if (!$data) {
-            return response()->json(['message' => 'Not found'], 404);
+            return response()->json([
+                'message'   => 'Pelanggan berhasil dibuat',
+                'pelanggan' => $pelanggan
+            ], 201);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Gagal membuat pelanggan',
+                'error'   => $e->getMessage()
+            ], 500);
         }
-
-        return response()->json(['pelanggan' => $data]);
     }
 
-    public function update(Request $request, $id)
+    /**
+     * GET /admin/pelanggan/{id}
+     */
+    public function show($id)
     {
         $pelanggan = Pelanggan::with('user')->find($id);
 
         if (!$pelanggan) {
-            return response()->json(['message' => 'Not found'], 404);
+            return response()->json(['message' => 'Pelanggan tidak ditemukan'], 404);
+        }
+
+        return response()->json($pelanggan);
+    }
+
+    /**
+     * PUT /admin/pelanggan/{id}
+     */
+    public function update(Request $request, $id)
+    {
+        $pelanggan = Pelanggan::find($id);
+
+        if (!$pelanggan) {
+            return response()->json(['message' => 'Pelanggan tidak ditemukan'], 404);
         }
 
         $request->validate([
-            'name'  => 'required',
-            'phone' => 'required|unique:users,phone,' . $pelanggan->user_id . ',user_id',
-            'alamat' => 'nullable|string'
+            'nama'   => 'required|string|max:200',
+            'alamat' => 'required|string',
         ]);
 
-        // UPDATE USER
-        $pelanggan->user->update([
-            'name'  => $request->name,
-            'phone' => $request->phone
-        ]);
-
-        // UPDATE PELANGGAN
         $pelanggan->update([
+            'nama'   => $request->nama,
             'alamat' => $request->alamat,
-            'no_hp'  => $request->phone
         ]);
 
-        return response()->json(['message' => 'Updated']);
+        // sync ke user
+        $pelanggan->user->update([
+            'name' => $request->nama,
+        ]);
+
+        return response()->json([
+            'message' => 'Pelanggan berhasil diperbarui'
+        ]);
     }
 
+    /**
+     * DELETE /admin/pelanggan/{id}
+     */
     public function destroy($id)
     {
         $pelanggan = Pelanggan::find($id);
 
         if (!$pelanggan) {
-            return response()->json(['message' => 'Not found'], 404);
+            return response()->json(['message' => 'Pelanggan tidak ditemukan'], 404);
         }
 
-        // Delete user → cascade hapus pelanggan otomatis
-        $pelanggan->user->delete();
+        // hapus user → cascade ke pelanggan
+        $pelanggan->user()->delete();
 
-        return response()->json(['message' => 'Deleted']);
+        return response()->json([
+            'message' => 'Pelanggan berhasil dihapus'
+        ]);
     }
 }

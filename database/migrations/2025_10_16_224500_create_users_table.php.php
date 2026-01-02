@@ -8,14 +8,17 @@ return new class extends Migration {
     public function up(): void
     {
         Schema::create('users', function (Blueprint $table) {
-        $table->id();
-        $table->string('name', 100)->nullable();
-        $table->string('phone', 20)->unique();
-        $table->enum('role', ['admin', 'customer'])->default('customer');
-        $table->string('otp')->nullable();
-        $table->timestamp('otp_expires_at')->nullable();
-        $table->timestamps();
-    });
+            $table->id();
+            $table->string('name')->nullable();
+            $table->string('phone', 20)->unique();
+            $table->enum('role', ['admin', 'customer'])->default('customer');
+
+            // OTP login
+            $table->string('otp')->nullable();
+            $table->timestamp('otp_expires_at')->nullable();
+
+            $table->timestamps();
+        });
 
     }
 

@@ -9,25 +9,27 @@ use Carbon\Carbon;
 
 class GenerateMonthlyReport extends Command
 {
-    protected $signature = 'report:generate-monthly {--month=}';
-    protected $description = 'Generate laporan keuangan bulanan dari data pembayaran';
+    protected $signature = 'report:generate-monthly {--periode=}';
+    protected $description = 'Generate laporan keuangan bulanan';
 
-    public function handle(): int
+    public function handle()
     {
-        $month = $this->option('month')
-            ?? now()->subMonth()->format('Y-m');
+        $periode = $this->option('periode')
+            ?? Carbon::now()->subMonth()->format('Y-m');
 
-        $start = Carbon::parse($month . '-01')->startOfMonth();
-        $end   = Carbon::parse($month . '-01')->endOfMonth();
+        $start = Carbon::createFromFormat('Y-m', $periode)->startOfMonth();
+        $end   = Carbon::createFromFormat('Y-m', $periode)->endOfMonth();
 
-        $totalPemasukan = Pembayaran::whereBetween('tanggal', [$start, $end])
+        $totalPemasukan = Pembayaran::where('status', 'confirmed')
+            ->whereBetween('tanggal', [$start, $end])
             ->sum('jumlah_bayar');
 
-        $totalTransaksi = Pembayaran::whereBetween('tanggal', [$start, $end])
+        $totalTransaksi = Pembayaran::where('status', 'confirmed')
+            ->whereBetween('tanggal', [$start, $end])
             ->count();
 
         LaporanKeuangan::updateOrCreate(
-            ['periode' => $month],
+            ['periode' => $periode],
             [
                 'total_pemasukan' => $totalPemasukan,
                 'total_transaksi' => $totalTransaksi,
@@ -35,10 +37,8 @@ class GenerateMonthlyReport extends Command
             ]
         );
 
-        $this->info("Laporan {$month} berhasil dibuat");
+        $this->info("Laporan {$periode} berhasil dibuat");
         $this->info("Total pemasukan : Rp {$totalPemasukan}");
         $this->info("Total transaksi : {$totalTransaksi}");
-
-        return Command::SUCCESS;
     }
 }

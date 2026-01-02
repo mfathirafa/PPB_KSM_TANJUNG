@@ -9,11 +9,20 @@ return new class extends Migration {
     {
         Schema::create('tagihans', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('pelanggan_id')->constrained()->cascadeOnDelete();
+
+            $table->foreignId('pelanggan_id')
+                ->constrained()
+                ->cascadeOnDelete();
+
             $table->date('tanggal');
             $table->integer('jumlah');
-            $table->enum('status', ['belum_dibayar', 'dibayar', 'lunas'])
-                ->default('belum_dibayar');
+
+            $table->enum('status', [
+                'belum_dibayar',
+                'dibayar',
+                'lunas'
+            ])->default('belum_dibayar');
+
             $table->timestamps();
         });
 

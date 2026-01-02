@@ -6,11 +6,26 @@ use Illuminate\Http\Request;
 
 class UserController extends Controller
 {
+    /**
+     * =========================
+     * GET /me
+     * =========================
+     * Return authenticated user info
+     */
     public function me(Request $request)
     {
-        // return data user login
+        $user = $request->user();
+
         return response()->json([
-            'user' => $request->user()
+            'id' => $user->id,
+            'name' => $user->name,
+            'phone' => $user->phone,
+            'role' => $user->role,
+
+            // optional (future proof)
+            'has_profile' => $user->pelanggan ? true : false,
+
+            'created_at' => $user->created_at,
         ]);
     }
 }

@@ -4,34 +4,45 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
     /**
-     * Kirim OTP ke nomor WA
+     * =========================
+     * SEND OTP (PUBLIC)
+     * =========================
+     * POST /send-otp
      */
     public function sendOtp(Request $request)
     {
-        $request->validate([
-            'phone' => 'required|string|min:10',
+        $validator = Validator::make($request->all(), [
+            'phone' => 'required|string|min:10|max:20',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Invalid phone number',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
 
         $otp = rand(100000, 999999);
 
-        $user = User::firstOrCreate(
+        $user = User::updateOrCreate(
             ['phone' => $request->phone],
             [
-                'name' => null,
-                'role' => 'customer',
+                'otp' => $otp,
+                'otp_expires_at' => now()->addMinutes(3),
             ]
         );
 
-        $user->otp = $otp;
-        $user->otp_expires_at = Carbon::now()->addMinutes(3);
-        $user->save();
-
-        // ⚠️ sementara return OTP (nanti diganti WA gateway)
+        /**
+         * NOTE:
+         * Di production -> kirim ke WhatsApp API
+         * Di PPB / demo -> return OTP ke response
+         */
         return response()->json([
             'message' => 'OTP sent',
             'otp' => $otp,
@@ -40,14 +51,24 @@ class AuthController extends Controller
     }
 
     /**
-     * Verifikasi OTP dan issue token Sanctum
+     * =========================
+     * VERIFY OTP (PUBLIC)
+     * =========================
+     * POST /verify-otp
      */
     public function verifyOtp(Request $request)
     {
-        $request->validate([
+        $validator = Validator::make($request->all(), [
             'phone' => 'required|string',
             'otp'   => 'required|string',
         ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'message' => 'Invalid request',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
 
         $user = User::where('phone', $request->phone)->first();
 
@@ -57,17 +78,19 @@ class AuthController extends Controller
 
         if (
             $user->otp !== $request->otp ||
-            Carbon::now()->greaterThan($user->otp_expires_at)
+            !$user->otp_expires_at ||
+            Carbon::now()->gt($user->otp_expires_at)
         ) {
             return response()->json(['message' => 'OTP invalid or expired'], 401);
         }
 
-        // bersihkan OTP
-        $user->otp = null;
-        $user->otp_expires_at = null;
-        $user->save();
+        // OTP valid → hapus OTP
+        $user->update([
+            'otp' => null,
+            'otp_expires_at' => null,
+        ]);
 
-        // issue token
+        // Buat token Sanctum
         $token = $user->createToken('mobile')->plainTextToken;
 
         return response()->json([
@@ -83,7 +106,10 @@ class AuthController extends Controller
     }
 
     /**
-     * Logout (revoke token)
+     * =========================
+     * LOGOUT (AUTH)
+     * =========================
+     * POST /logout
      */
     public function logout(Request $request)
     {

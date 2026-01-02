@@ -5,136 +5,123 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Pembayaran;
 use App\Models\Tagihan;
-use App\Models\Pelanggan;
+use Illuminate\Support\Facades\Storage;
 
 class PembayaranController extends Controller
 {
-    // ============================
-    // CUSTOMER: Create payment
-    // ============================
+    /**
+     * =========================
+     * POST /pembayaran/create
+     * =========================
+     * Customer membuat pembayaran
+     */
     public function create(Request $request)
     {
         $request->validate([
-            'tagihan_id' => 'required|exists:tagihans,id_tagihan',
-            'metode' => 'required|string'
+            'tagihan_id' => 'required|exists:tagihans,id',
+            'metode'     => 'required|in:QRIS,TRANSFER,CASH',
         ]);
 
-        $user = auth()->user();
+        $user = $request->user();
 
-        // Cegah double pending
-        $existing = Pembayaran::where('tagihan_id', $request->tagihan_id)
+        if ($user->role !== 'customer') {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $tagihan = Tagihan::findOrFail($request->tagihan_id);
+
+        // Cegah double payment pending
+        $existing = Pembayaran::where('tagihan_id', $tagihan->id)
             ->where('status', 'pending')
             ->first();
 
-        if ($existing) return response()->json(['payment' => $existing]);
+        if ($existing) {
+            return response()->json([
+                'message' => 'Pembayaran sudah ada',
+                'pembayaran' => $existing
+            ]);
+        }
 
-        $payment = Pembayaran::create([
-            'tagihan_id' => $request->tagihan_id,
-            'user_id' => $user->user_id,
-            'nominal' => Tagihan::find($request->tagihan_id)->jumlah,
-            'metode' => $request->metode,
-            'status' => 'pending',
+        $pembayaran = Pembayaran::create([
+            'user_id'       => $user->id,
+            'tagihan_id'    => $tagihan->id,
+            'tanggal'       => now(),
+            'jumlah_bayar'  => $tagihan->jumlah,
+            'metode'        => $request->metode,
+            'status'        => 'pending',
         ]);
 
-        return response()->json(['payment' => $payment]);
+        return response()->json([
+            'message' => 'Pembayaran dibuat',
+            'pembayaran' => $pembayaran
+        ]);
+        NotifikasiController::createPembayaranNotif(
+            $adminUserId,
+            "Pembayaran baru menunggu verifikasi"
+        );
     }
 
-    // ============================
-    // CUSTOMER: Upload Bukti
-    // ============================
+    /**
+     * =========================
+     * POST /pembayaran/upload-bukti
+     * =========================
+     */
     public function uploadBukti(Request $request)
     {
         $request->validate([
-            'pembayaran_id' => 'required|exists:pembayarans,id_pembayaran',
-            'bukti' => 'required|file|mimes:jpg,jpeg,png,pdf'
+            'pembayaran_id' => 'required|exists:pembayarans,id',
+            'bukti' => 'required|file|mimes:jpg,jpeg,png,pdf|max:2048'
         ]);
 
-        $path = $request->file('bukti')->store('bukti_pembayaran', 'public');
+        $user = $request->user();
 
-        $payment = Pembayaran::find($request->pembayaran_id);
-        $payment->bukti_path = $path;
-        $payment->save();
+        $pembayaran = Pembayaran::where('id', $request->pembayaran_id)
+            ->where('user_id', $user->id)
+            ->firstOrFail();
 
-        return response()->json(['message' => 'Uploaded', 'path' => $path]);
+        $path = $request->file('bukti')
+            ->store('bukti_pembayaran', 'public');
+
+        $pembayaran->update([
+            'bukti_path' => $path
+        ]);
+
+        return response()->json([
+            'message' => 'Bukti pembayaran diupload',
+            'path' => $path
+        ]);
     }
 
-    // ============================
-    // CUSTOMER: Riwayat
-    // ============================
-    public function riwayatCustomer()
+    /**
+     * =========================
+     * GET /pembayaran/riwayat
+     * =========================
+     */
+    public function riwayatCustomer(Request $request)
     {
-        $user = auth()->user();
+        $user = $request->user();
 
-        $history = Pembayaran::with('tagihan')
-            ->where('user_id', $user->user_id)
+        if ($user->role !== 'customer') {
+            return response()->json(['message' => 'Forbidden'], 403);
+        }
+
+        $data = Pembayaran::with('tagihan')
+            ->where('user_id', $user->id)
             ->orderBy('created_at', 'desc')
             ->get()
             ->map(function ($p) {
-
-                $statusUI = match ($p->status) {
-                    'pending' => 'Menunggu Pembayaran',
-                    'approved' => 'Terkonfirmasi',
-                    'rejected' => 'Ditolak',
-                    default => 'Menunggu Pembayaran'
-                };
-
                 return [
-                    'id' => $p->id_pembayaran,
-                    'title' => 'Tagihan #' . $p->tagihan_id,
-                    'date' => $p->created_at->format('d M Y, H:i'),
-                    'status' => $statusUI,
-                    'method' => $p->metode,
-                    'amount' => $p->nominal,
-                    'timestamp' => strtotime($p->created_at),
+                    'id' => $p->id,
+                    'tagihan_id' => $p->tagihan_id,
+                    'tanggal' => $p->created_at->format('d M Y'),
+                    'jumlah' => $p->jumlah_bayar,
+                    'metode' => $p->metode,
+                    'status' => $p->status,
                 ];
             });
 
-        return response()->json(['history' => $history]);
-    }
-
-    // ============================
-    // ADMIN: List pembayaran
-    // ============================
-    public function listAdmin()
-    {
-        $payments = Pembayaran::with('tagihan.pelanggan.user')
-            ->orderBy('created_at', 'desc')
-            ->get();
-
-        return response()->json(['pembayaran' => $payments]);
-    }
-
-    // ============================
-    // ADMIN: Approve
-    // ============================
-    public function approve($id)
-    {
-        $payment = Pembayaran::find($id);
-
-        if (!$payment) return response()->json(['message' => 'Not found'], 404);
-
-        $payment->status = 'approved';
-        $payment->save();
-
-        $tagihan = Tagihan::find($payment->tagihan_id);
-        $tagihan->status = 'paid';
-        $tagihan->save();
-
-        return response()->json(['message' => 'Payment approved']);
-    }
-
-    // ============================
-    // ADMIN: Reject
-    // ============================
-    public function reject($id)
-    {
-        $payment = Pembayaran::find($id);
-
-        if (!$payment) return response()->json(['message' => 'Not found'], 404);
-
-        $payment->status = 'rejected';
-        $payment->save();
-
-        return response()->json(['message' => 'Payment rejected']);
+        return response()->json([
+            'riwayat' => $data
+        ]);
     }
 }

@@ -21,6 +21,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\CustomerTagihanController;
 use App\Http\Controllers\PembayaranController;
 use App\Http\Controllers\NotifikasiController;
+use App\Http\Controllers\LaporanKeuanganController;
 
 
 
@@ -35,6 +36,7 @@ use App\Http\Controllers\Admin\PembayaranAdminController;
 use App\Http\Controllers\Admin\SettingsController;
 use App\Http\Controllers\Admin\LaporanController;
 use App\Http\Controllers\Admin\DashboardAdminController;
+
 
 Schedule::command('report:generate-monthly')
     ->monthlyOn(1, '00:05');
@@ -57,9 +59,7 @@ Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::middleware('auth:sanctum')->group(function () {
 
     // Profile
-     Route::get('/me', function (Request $request) {
-        return response()->json($request->user());
-    });
+    Route::get('/me', [UserController::class, 'me']);
     // Tagihan user
     Route::get('/tagihan', [CustomerTagihanController::class, 'index']);
 
@@ -70,6 +70,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Logout
     Route::post('/logout', [AuthController::class, 'logout']);
+
     Route::post('/notifikasi/tagihan', [NotifikasiController::class, 'tagihan']);
     Route::post('/notifikasi/pembayaran', [NotifikasiController::class, 'pembayaran']);
 

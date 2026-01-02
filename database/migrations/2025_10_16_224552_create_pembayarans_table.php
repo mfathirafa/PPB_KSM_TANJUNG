@@ -10,17 +10,17 @@ return new class extends Migration {
         Schema::create('pembayarans', function (Blueprint $table) {
             $table->id();
 
-            // customer
+            // customer yang bayar
             $table->foreignId('user_id')
-                ->constrained('users')
+                ->constrained()
                 ->cascadeOnDelete();
 
-            // tagihan
+            // tagihan yang dibayar
             $table->foreignId('tagihan_id')
-                ->constrained('tagihans')
+                ->constrained()
                 ->cascadeOnDelete();
 
-            // admin verifier
+            // admin yang verifikasi (nullable)
             $table->foreignId('verified_by')
                 ->nullable()
                 ->constrained('users')
@@ -28,7 +28,12 @@ return new class extends Migration {
 
             $table->date('tanggal');
             $table->integer('jumlah_bayar');
-            $table->enum('metode', ['QRIS', 'TRANSFER', 'CASH']);
+
+            $table->enum('metode', [
+                'QRIS',
+                'TRANSFER',
+                'CASH'
+            ]);
 
             $table->enum('status', [
                 'pending',

@@ -6,6 +6,7 @@ use App\Models\Tagihan;
 use App\Models\Pelanggan;
 use Illuminate\Http\Request;
 
+
 class CustomerTagihanController extends Controller
 {
     public function index(Request $request)

@@ -7,25 +7,20 @@ use Illuminate\Database\Eloquent\Model;
 
 class Pelanggan extends Model
 {
-    use HasFactory;
-
-    protected $primaryKey = 'id_pelanggan';
-
     protected $fillable = [
         'user_id',
+        'nama',
         'alamat',
         'no_hp',
     ];
 
-    // Pelanggan milik 1 user
     public function user()
     {
-        return $this->belongsTo(User::class, 'user_id');
+        return $this->belongsTo(User::class);
     }
 
-    // Pelanggan punya banyak tagihan
     public function tagihans()
     {
-        return $this->hasMany(Tagihan::class, 'pelanggan_id');
+        return $this->hasMany(Tagihan::class);
     }
 }
