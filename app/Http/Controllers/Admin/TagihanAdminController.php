@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Tagihan;
 use App\Models\Pelanggan;
-use App\Http\Controllers\NotifikasiController;
+use App\Models\Notifikasi;
 use Carbon\Carbon;
 
 class TagihanAdminController extends Controller
@@ -18,17 +18,15 @@ class TagihanAdminController extends Controller
     public function index()
     {
         $tagihans = Tagihan::with('pelanggan.user')
-            ->orderBy('created_at', 'desc')
+            ->orderBy('tanggal', 'desc')
             ->get()
             ->map(function ($t) {
                 return [
-                    'id'          => $t->id,
-                    'pelanggan'   => $t->pelanggan->nama,
-                    'phone'       => $t->pelanggan->no_hp,
-                    'tanggal'     => $t->tanggal,
-                    'jumlah'      => $t->jumlah,
-                    'status'      => $t->status,
-                    'created_at'  => $t->created_at->format('Y-m-d'),
+                    'id'       => $t->id,
+                    'nama'     => $t->pelanggan->nama,
+                    'jumlah'   => $t->jumlah,
+                    'status'   => $t->status,
+                    'tanggal'  => $t->tanggal->format('Y-m-d'),
                 ];
             });
 
@@ -37,45 +35,39 @@ class TagihanAdminController extends Controller
 
     /**
      * POST /admin/tagihan
-     * Admin membuat tagihan baru
+     * Admin membuat tagihan
      */
     public function store(Request $request)
     {
         $request->validate([
             'pelanggan_id' => 'required|exists:pelanggans,id',
-            'tanggal'      => 'required|date',
             'jumlah'       => 'required|integer|min:1000',
+            'tanggal'      => 'required|date',
         ]);
 
-        $pelanggan = Pelanggan::with('user')->find($request->pelanggan_id);
+        $pelanggan = Pelanggan::with('user')->findOrFail($request->pelanggan_id);
 
-        if (!$pelanggan) {
-            return response()->json(['message' => 'Pelanggan tidak ditemukan'], 404);
-        }
-
-        // 1️⃣ Buat tagihan
+        // 1️⃣ Simpan tagihan
         $tagihan = Tagihan::create([
             'pelanggan_id' => $pelanggan->id,
-            'tanggal'      => $request->tanggal,
             'jumlah'       => $request->jumlah,
+            'tanggal'      => $request->tanggal,
             'status'       => 'belum_dibayar',
         ]);
 
-        // 2️⃣ KIRIM NOTIFIKASI (INI PENTING)
-        // ⬇️ Ini adalah IMPLEMENTASI NYATA FLOW BISNIS
-        NotifikasiController::create([
+        // 2️⃣ Kirim notifikasi ke customer
+        Notifikasi::create([
             'user_id' => $pelanggan->user_id,
-            'pesan'   => "Tagihan baru sebesar Rp " . number_format($tagihan->jumlah) .
-                         " telah dibuat. Jatuh tempo: " .
-                         Carbon::parse($tagihan->tanggal)->format('d M Y'),
+            'pesan'   => "Tagihan baru sebesar Rp {$tagihan->jumlah} telah dibuat.",
             'tipe'    => 'tagihan',
-            'channel' => 'whatsapp',
-            'status'  => 'pending',
+            'channel' => 'system',
+            'status'  => 'sent',
+            'sent_at' => Carbon::now(),
         ]);
 
         return response()->json([
-            'message' => 'Tagihan berhasil dibuat',
-            'tagihan' => $tagihan
+            'message' => 'Tagihan berhasil dibuat & notifikasi dikirim',
+            'data'    => $tagihan
         ], 201);
     }
 
@@ -84,12 +76,7 @@ class TagihanAdminController extends Controller
      */
     public function show($id)
     {
-        $tagihan = Tagihan::with('pelanggan.user')->find($id);
-
-        if (!$tagihan) {
-            return response()->json(['message' => 'Tagihan tidak ditemukan'], 404);
-        }
-
+        $tagihan = Tagihan::with('pelanggan.user')->findOrFail($id);
         return response()->json($tagihan);
     }
 
@@ -98,19 +85,15 @@ class TagihanAdminController extends Controller
      */
     public function update(Request $request, $id)
     {
-        $tagihan = Tagihan::find($id);
-
-        if (!$tagihan) {
-            return response()->json(['message' => 'Tagihan tidak ditemukan'], 404);
-        }
+        $tagihan = Tagihan::findOrFail($id);
 
         $request->validate([
-            'tanggal' => 'required|date',
             'jumlah'  => 'required|integer|min:1000',
+            'tanggal' => 'required|date',
             'status'  => 'required|in:belum_dibayar,dibayar,lunas',
         ]);
 
-        $tagihan->update($request->only(['tanggal', 'jumlah', 'status']));
+        $tagihan->update($request->only('jumlah', 'tanggal', 'status'));
 
         return response()->json([
             'message' => 'Tagihan berhasil diperbarui'
@@ -122,13 +105,7 @@ class TagihanAdminController extends Controller
      */
     public function destroy($id)
     {
-        $tagihan = Tagihan::find($id);
-
-        if (!$tagihan) {
-            return response()->json(['message' => 'Tagihan tidak ditemukan'], 404);
-        }
-
-        $tagihan->delete();
+        Tagihan::findOrFail($id)->delete();
 
         return response()->json([
             'message' => 'Tagihan berhasil dihapus'

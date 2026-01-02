@@ -71,9 +71,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Logout
     Route::post('/logout', [AuthController::class, 'logout']);
 
+    // Notifikasi
     Route::post('/notifikasi/tagihan', [NotifikasiController::class, 'tagihan']);
     Route::post('/notifikasi/pembayaran', [NotifikasiController::class, 'pembayaran']);
-
     Route::get('/notifikasi', [NotifikasiController::class, 'list']);
     Route::patch('/notifikasi/{id}/read', [NotifikasiController::class, 'markRead']);
 });

@@ -9,18 +9,17 @@ class Tagihan extends Model
 {
     protected $fillable = [
         'pelanggan_id',
-        'tanggal',
         'jumlah',
-        'status',
+        'tanggal',
+        'status'
+    ];
+
+    protected $casts = [
+        'tanggal' => 'date',
     ];
 
     public function pelanggan()
     {
         return $this->belongsTo(Pelanggan::class);
-    }
-
-    public function pembayarans()
-    {
-        return $this->hasMany(Pembayaran::class);
     }
 }

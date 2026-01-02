@@ -41,7 +41,7 @@ class PelangganController extends Controller
     {
         $request->validate([
             'nama'   => 'required|string|max:200',
-            'phone'  => 'required|string|max:20|unique:users,phone',
+            'phone'  => 'required|string|max:20',
             'alamat' => 'required|string',
         ]);
 
@@ -49,20 +49,32 @@ class PelangganController extends Controller
 
         try {
             // 1️⃣ Buat user customer
+            // 1️⃣ Cari user berdasarkan phone
+        $user = User::where('phone', $request->phone)->first();
+
+        // 2️⃣ Kalau belum ada → buat user
+        if (!$user) {
             $user = User::create([
                 'name'  => $request->nama,
                 'phone' => $request->phone,
                 'role'  => 'customer',
             ]);
+        }
 
-            // 2️⃣ Buat pelanggan
-            $pelanggan = Pelanggan::create([
-                'user_id' => $user->id,
-                'nama'    => $request->nama,
-                'alamat'  => $request->alamat,
-                'no_hp'   => $request->phone,
-            ]);
+        // 3️⃣ Cegah pelanggan ganda
+        if (Pelanggan::where('user_id', $user->id)->exists()) {
+            return response()->json([
+                'message' => 'User ini sudah menjadi pelanggan'
+            ], 422);
+        }
 
+        // 4️⃣ Jadikan pelanggan
+        $pelanggan = Pelanggan::create([
+            'user_id' => $user->id,
+            'nama'    => $request->nama,
+            'alamat'  => $request->alamat,
+            'no_hp'   => $request->phone,
+        ]);
             DB::commit();
 
             return response()->json([

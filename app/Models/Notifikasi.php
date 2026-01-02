@@ -10,7 +10,6 @@ class Notifikasi extends Model
         'user_id',
         'pesan',
         'tipe',
-        'channel',
         'status',
         'sent_at',
     ];
