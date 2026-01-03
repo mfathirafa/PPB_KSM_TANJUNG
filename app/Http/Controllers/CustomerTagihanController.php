@@ -8,23 +8,19 @@ use App\Models\Tagihan;
 class CustomerTagihanController extends Controller
 {
     /**
-     * =========================
      * GET /tagihan
-     * =========================
      * List tagihan customer login
      */
     public function index(Request $request)
     {
         $user = $request->user();
 
-        // Pastikan user adalah customer
+        // 🔒 Role check
         if ($user->role !== 'customer') {
-            return response()->json([
-                'message' => 'Forbidden'
-            ], 403);
+            return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        // Pastikan customer punya data pelanggan
+        // 🔒 Pastikan customer punya data pelanggan
         if (!$user->pelanggan) {
             return response()->json([
                 'tagihan' => [],
@@ -37,17 +33,17 @@ class CustomerTagihanController extends Controller
         }
 
         $tagihans = Tagihan::where('pelanggan_id', $user->pelanggan->id)
-            ->orderBy('tanggal', 'desc')
+            ->orderByDesc('tanggal')
             ->get();
 
-        // Summary untuk dashboard
+        // 📊 Summary
         $summary = [
             'total' => $tagihans->count(),
             'belum_dibayar' => $tagihans->where('status', 'belum_dibayar')->count(),
             'lunas' => $tagihans->whereIn('status', ['dibayar', 'lunas'])->count(),
         ];
 
-        // Mapping data untuk UI Flutter
+        // 📦 Data untuk UI
         $data = $tagihans->map(function ($t) {
             return [
                 'id' => $t->id,

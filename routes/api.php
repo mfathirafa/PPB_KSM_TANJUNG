@@ -4,7 +4,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Schedule;
 
-
 /*
 |--------------------------------------------------------------------------
 | AUTH CONTROLLERS
@@ -18,10 +17,10 @@ use App\Http\Controllers\AuthController;
 |--------------------------------------------------------------------------
 */
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\TagihanController;
 use App\Http\Controllers\CustomerTagihanController;
 use App\Http\Controllers\PembayaranController;
 use App\Http\Controllers\NotifikasiController;
-use App\Http\Controllers\LaporanKeuanganController;
 
 
 
@@ -34,12 +33,8 @@ use App\Http\Controllers\Admin\PelangganController;
 use App\Http\Controllers\Admin\TagihanAdminController;
 use App\Http\Controllers\Admin\PembayaranAdminController;
 use App\Http\Controllers\Admin\SettingsController;
-use App\Http\Controllers\Admin\LaporanController;
+use App\Http\Controllers\Admin\LaporanKeuanganController;
 use App\Http\Controllers\Admin\DashboardAdminController;
-
-
-Schedule::command('report:generate-monthly')
-    ->monthlyOn(1, '00:05');
 
 
 /*
@@ -59,12 +54,12 @@ Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::middleware('auth:sanctum')->group(function () {
 
     // Profile
-    Route::get('/me', [UserController::class, 'me']);
+    Route::get('/profile', [UserController::class, 'me']);
     // Tagihan user
     Route::get('/tagihan', [CustomerTagihanController::class, 'index']);
 
     // Pembayaran user
-    Route::post('/pembayaran/create', [PembayaranController::class, 'create']);
+    Route::post('/pembayaran', [PembayaranController::class, 'store']);
     Route::post('/pembayaran/upload-bukti', [PembayaranController::class, 'uploadBukti']);
     Route::get('/pembayaran/riwayat', [PembayaranController::class, 'riwayatCustomer']);
 
@@ -127,8 +122,8 @@ Route::middleware(['auth:sanctum', 'admin'])
         | LAPORAN
         |--------------------------------------------------------------------------
                 */
-        Route::get('/admin/laporan-keuangan', [LaporanKeuanganController::class, 'index']);
-        Route::get('/admin/laporan-keuangan/{periode}', [LaporanKeuanganController::class, 'show']);
+        Route::get('/laporan-keuangan', [LaporanKeuanganController::class, 'index']);
+        Route::get('/laporan-keuangan/{periode}', [LaporanKeuanganController::class, 'show']);
 
         /*
         |--------------------------------------------------------------------------

@@ -5,14 +5,13 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\Pembayaran;
 use App\Models\Tagihan;
-use Illuminate\Support\Facades\Storage;
+use App\Models\User;
+use App\Http\Controllers\NotifikasiController;
 
 class PembayaranController extends Controller
 {
     /**
-     * =========================
      * POST /pembayaran/create
-     * =========================
      * Customer membuat pembayaran
      */
     public function create(Request $request)
@@ -24,47 +23,55 @@ class PembayaranController extends Controller
 
         $user = $request->user();
 
+        // 🔒 Role check
         if ($user->role !== 'customer') {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $tagihan = Tagihan::findOrFail($request->tagihan_id);
+        // 🔒 Ambil tagihan & pastikan milik customer
+        $tagihan = Tagihan::where('id', $request->tagihan_id)
+            ->where('pelanggan_id', optional($user->pelanggan)->id)
+            ->firstOrFail();
 
-        // Cegah double payment pending
+        // 🔒 Cegah double payment (pending / paid)
         $existing = Pembayaran::where('tagihan_id', $tagihan->id)
-            ->where('status', 'pending')
+            ->whereIn('status', ['pending', 'approved'])
             ->first();
 
         if ($existing) {
             return response()->json([
                 'message' => 'Pembayaran sudah ada',
                 'pembayaran' => $existing
-            ]);
+            ], 409);
         }
 
+        // ✅ Buat pembayaran
         $pembayaran = Pembayaran::create([
-            'user_id'       => $user->id,
-            'tagihan_id'    => $tagihan->id,
-            'tanggal'       => now(),
-            'jumlah_bayar'  => $tagihan->jumlah,
-            'metode'        => $request->metode,
-            'status'        => 'pending',
+            'user_id'      => $user->id,
+            'tagihan_id'   => $tagihan->id,
+            'tanggal'      => now(),
+            'jumlah_bayar' => $tagihan->jumlah,
+            'metode'       => $request->metode,
+            'status'       => 'pending',
         ]);
 
+        // 🔔 Kirim notifikasi ke admin
+        $adminIds = User::where('role', 'admin')->pluck('id');
+        foreach ($adminIds as $adminId) {
+            NotifikasiController::createPembayaranNotif(
+                $adminId,
+                "Pembayaran baru menunggu verifikasi"
+            );
+        }
+
         return response()->json([
-            'message' => 'Pembayaran dibuat',
+            'message' => 'Pembayaran berhasil dibuat',
             'pembayaran' => $pembayaran
-        ]);
-        NotifikasiController::createPembayaranNotif(
-            $adminUserId,
-            "Pembayaran baru menunggu verifikasi"
-        );
+        ], 201);
     }
 
     /**
-     * =========================
      * POST /pembayaran/upload-bukti
-     * =========================
      */
     public function uploadBukti(Request $request)
     {
@@ -77,6 +84,7 @@ class PembayaranController extends Controller
 
         $pembayaran = Pembayaran::where('id', $request->pembayaran_id)
             ->where('user_id', $user->id)
+            ->where('status', 'pending')
             ->firstOrFail();
 
         $path = $request->file('bukti')
@@ -87,15 +95,13 @@ class PembayaranController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Bukti pembayaran diupload',
+            'message' => 'Bukti pembayaran berhasil diupload',
             'path' => $path
         ]);
     }
 
     /**
-     * =========================
      * GET /pembayaran/riwayat
-     * =========================
      */
     public function riwayatCustomer(Request $request)
     {
@@ -107,13 +113,13 @@ class PembayaranController extends Controller
 
         $data = Pembayaran::with('tagihan')
             ->where('user_id', $user->id)
-            ->orderBy('created_at', 'desc')
+            ->orderByDesc('created_at')
             ->get()
             ->map(function ($p) {
                 return [
                     'id' => $p->id,
                     'tagihan_id' => $p->tagihan_id,
-                    'tanggal' => $p->created_at->format('d M Y'),
+                    'tanggal' => $p->created_at->format('Y-m-d H:i'),
                     'jumlah' => $p->jumlah_bayar,
                     'metode' => $p->metode,
                     'status' => $p->status,

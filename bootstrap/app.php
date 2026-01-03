@@ -3,20 +3,15 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Schedule;
 
-// Tambahkan ini
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\RoleMiddleware;
-
-
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
         web: __DIR__.'/../routes/web.php',
         api: __DIR__.'/../routes/api.php',
-        commands: __DIR__.'/../routes/console.php',
+        commands: __DIR__.'/../routes/console.php', // ⬅️ command DI SINI
         health: '/up',
     )
 
@@ -24,7 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
 
         /*
         |--------------------------------------------------------------------------
-        | Session untuk API (dibutuhkan Flutter login OTP)
+        | API Middleware (OTP butuh session)
         |--------------------------------------------------------------------------
         */
         $middleware->api(append: [
@@ -32,21 +27,19 @@ return Application::configure(basePath: dirname(__DIR__))
             \Illuminate\Session\Middleware\StartSession::class,
         ]);
 
-
         /*
         |--------------------------------------------------------------------------
-        | Register Middleware Alias
+        | Middleware Alias
         |--------------------------------------------------------------------------
         */
         $middleware->alias([
             'admin' => AdminMiddleware::class,
-            'role' => RoleMiddleware::class, // opsional
+            'role'  => RoleMiddleware::class,
         ]);
-
 
         /*
         |--------------------------------------------------------------------------
-        | CSRF Exceptions (untuk web)
+        | CSRF Exception (OTP)
         |--------------------------------------------------------------------------
         */
         $middleware->validateCsrfTokens(except: [
