@@ -63,6 +63,7 @@ class PelangganController extends Controller
 
         // 3️⃣ Cegah pelanggan ganda
         if (Pelanggan::where('user_id', $user->id)->exists()) {
+            DB::rollBack();
             return response()->json([
                 'message' => 'User ini sudah menjadi pelanggan'
             ], 422);
@@ -149,7 +150,7 @@ class PelangganController extends Controller
         }
 
         // hapus user → cascade ke pelanggan
-        $pelanggan->user()->delete();
+        $pelanggan->delete();
 
         return response()->json([
             'message' => 'Pelanggan berhasil dihapus'
