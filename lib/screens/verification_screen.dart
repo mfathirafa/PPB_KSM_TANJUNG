@@ -1,35 +1,19 @@
 import 'dart:convert';
 
-
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../models/dummy_data.dart';
 import '../config/api_config.dart';
-
-import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-
-import '../config/api.dart';
-
 import 'dashboard_admin_screen.dart';
 import 'dashboard_screen.dart';
 
 class VerificationScreen extends StatefulWidget {
   final String phone;
-
   final String role;
 
   const VerificationScreen({
-
-
-  const VerificationScreen({
-    required this.phone,
-
     super.key,
     required this.phone,
     this.role = "customer",
@@ -40,145 +24,97 @@ class VerificationScreen extends StatefulWidget {
 }
 
 class _VerificationScreenState extends State<VerificationScreen> {
-<<<<<<< HEAD
-  final List<TextEditingController> controllers =
+  final List<TextEditingController> _controllers =
       List.generate(6, (_) => TextEditingController());
-
-  final List<FocusNode> focusNodes =
+  final List<FocusNode> _focusNodes =
       List.generate(6, (_) => FocusNode());
 
-  final controllers = List.generate(6, (_) => TextEditingController());
-  final focusNodes = List.generate(6, (_) => FocusNode());
-  bool loading = false;
-
+  bool _loading = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      focusNodes.first.requestFocus();
+      _focusNodes.first.requestFocus();
     });
   }
 
   @override
   void dispose() {
-    for (final c in controllers) {
+    for (final c in _controllers) {
       c.dispose();
     }
-    for (final f in focusNodes) {
+    for (final f in _focusNodes) {
       f.dispose();
     }
     super.dispose();
   }
 
+  // =========================
+  // VERIFY OTP
+  // =========================
   Future<void> _verify() async {
-<<<<<<< HEAD
-    final code = controllers.map((c) => c.text).join();
-
-    if (code.length < 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('OTP belum lengkap')),
-      );
-      return;
-    }
-
-    try {
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/verify-otp'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'phone': widget.phone,
-          'otp': code,
-        }),
-      );
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final token = data['token'];
-        final role = data['role'];
-
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', token);
-        await prefs.setString('role', role);
-
-        if (!mounted) return;
-
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) =>
-                role == 'admin'
-                    ? const DashboardAdminScreen()
-                    : const DashboardScreen(),
-          ),
-        );
-      } else {
-        _showError();
-      }
-    } catch (e) {
-      _showError();
-    }
-  }
-
-  void _showError() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('OTP salah / kadaluarsa')),
-    );
-
-    final otp = controllers.map((c) => c.text).join();
+    final otp = _controllers.map((c) => c.text).join();
 
     if (otp.length != 6) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('OTP harus 6 digit')),
+        const SnackBar(content: Text('Kode OTP tidak lengkap')),
       );
       return;
     }
 
-    setState(() => loading = true);
+    setState(() => _loading = true);
 
     try {
-      final response = await http.post(
+      final res = await http.post(
         Uri.parse('${ApiConfig.baseUrl}/verify-otp'),
-        headers: {'Content-Type': 'application/json'},
+        headers: const {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode({
           'phone': widget.phone,
           'otp': otp,
         }),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
+      if (res.statusCode != 200) {
+        throw Exception('OTP salah');
+      }
 
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', data['token']);
-        await prefs.setString('role', data['role']);
+      final data = jsonDecode(res.body);
 
-        if (!mounted) return;
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('token', data['token']);
+      await prefs.setString('role', data['role']);
 
-        if (data['role'] == 'admin') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const DashboardAdminScreen()),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const DashboardScreen()),
-          );
-        }
+      if (!mounted) return;
+
+      if (data['role'] == 'admin') {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const DashboardAdminScreen(),
+          ),
+          (_) => false,
+        );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('OTP salah atau kadaluarsa')),
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const DashboardScreen(),
+          ),
+          (_) => false,
         );
       }
-    } catch (e) {
+    } catch (_) {
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        const SnackBar(content: Text('Kode verifikasi salah')),
       );
     } finally {
-      setState(() => loading = false);
+      if (mounted) setState(() => _loading = false);
     }
-
   }
 
   @override
@@ -189,70 +125,30 @@ class _VerificationScreenState extends State<VerificationScreen> {
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-
-        leadingWidth: 60,
-        leading: Padding(
-          padding: const EdgeInsets.only(left: 15),
-          child: GestureDetector(
-            onTap: () => Navigator.pop(context),
-            child: Container(
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 3,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: const Icon(
-                Icons.arrow_back_ios_new,
-                size: 20,
-                color: Colors.black,
-              ),
-            ),
-          ),
-
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black),
           onPressed: () => Navigator.pop(context),
-
         ),
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 25),
         child: Column(
           children: [
-            const SizedBox(height: 20),
-
+            const SizedBox(height: 30),
             const FaIcon(
               FontAwesomeIcons.whatsapp,
               color: whatsappGreen,
               size: 60,
             ),
-
-            const FaIcon(FontAwesomeIcons.whatsapp,
-                color: whatsappGreen, size: 60),
-
             const SizedBox(height: 20),
             const Text(
-              'Verifikasi dengan WhatsApp',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-
+              'Verifikasi WhatsApp',
               textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
             Text(
-              'Masukkan kode verifikasi yang dikirim ke\n${widget.phone}',
-
-            ),
-            const SizedBox(height: 10),
-            Text(
-              'Masukkan kode yang dikirim ke ${widget.phone}',
-
+              'Masukkan kode yang dikirim ke\n${widget.phone}',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.grey),
             ),
@@ -262,109 +158,60 @@ class _VerificationScreenState extends State<VerificationScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(6, (i) {
-
-                return Flexible(
-                  child: Container(
-                    height: 55,
-                    margin: const EdgeInsets.symmetric(horizontal: 4),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade400, width: 1.5),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: TextField(
-                      controller: controllers[i],
-                      focusNode: focusNodes[i],
-                      textAlign: TextAlign.center,
-                      keyboardType: TextInputType.number,
-                      maxLength: 1,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      decoration: const InputDecoration(
-                        counterText: '',
-                        border: InputBorder.none,
-                      ),
-                      onChanged: (value) {
-                        if (value.isNotEmpty && i < 5) {
-                          focusNodes[i + 1].requestFocus();
-                        } else if (value.isEmpty && i > 0) {
-                          focusNodes[i - 1].requestFocus();
-                        }
-                      },
-                    ),
-
                 return SizedBox(
                   width: 45,
+                  height: 55,
                   child: TextField(
-                    controller: controllers[i],
-                    focusNode: focusNodes[i],
+                    controller: _controllers[i],
+                    focusNode: _focusNodes[i],
                     textAlign: TextAlign.center,
                     keyboardType: TextInputType.number,
                     maxLength: 1,
-                    decoration: const InputDecoration(counterText: ''),
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    decoration: InputDecoration(
+                      counterText: '',
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
                     onChanged: (v) {
                       if (v.isNotEmpty && i < 5) {
-                        focusNodes[i + 1].requestFocus();
+                        _focusNodes[i + 1].requestFocus();
+                      } else if (v.isEmpty && i > 0) {
+                        _focusNodes[i - 1].requestFocus();
                       }
                     },
-
                   ),
                 );
               }),
             ),
 
-
-
-            const SizedBox(height: 30),
-
-
             const SizedBox(height: 30),
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: loading ? null : _verify,
+                onPressed: _loading ? null : _verify,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: whatsappGreen,
-
-                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Text(
-                  'Verifikasi Kode',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-
-                ),
-                child: loading
+                child: _loading
                     ? const CircularProgressIndicator(color: Colors.white)
                     : const Text(
                         'Verifikasi',
                         style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
               ),
             ),
-
-
-            const SizedBox(height: 20),
-            TextButton(
-              onPressed: () {
-                final newOtp = generateOtp();
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Mengirim ulang OTP (dummy): $newOtp')),
-                );
-              },
-              child: const Text(
-                'Kirim ulang kode',
-                style: TextStyle(color: whatsappGreen),
-              ),
-            ),
-
-
           ],
         ),
       ),
