@@ -1,9 +1,16 @@
 import 'dart:convert';
+<<<<<<< HEAD
 
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 import '../config/api_config.dart';
+=======
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+import '../config/api.dart';
+>>>>>>> d7e9063525d9f51d111e9f438353afca37598ae0
 import 'verification_screen.dart';
 
 class WhatsAppLogin extends StatefulWidget {
@@ -19,6 +26,7 @@ class WhatsAppLogin extends StatefulWidget {
 }
 
 class _WhatsAppLoginState extends State<WhatsAppLogin> {
+<<<<<<< HEAD
   final TextEditingController _country =
       TextEditingController(text: '+62');
   final TextEditingController _phone = TextEditingController();
@@ -42,7 +50,16 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
       );
       return;
     }
+=======
+  final _country = TextEditingController(text: '+62');
+  final _phone = TextEditingController();
+  bool loading = false;
 
+  Future<void> _sendOtp() async {
+    if (_phone.text.isEmpty) return;
+>>>>>>> d7e9063525d9f51d111e9f438353afca37598ae0
+
+    setState(() => loading = true);
     final phone = "${_country.text}${_phone.text}";
 
     setState(() => _loading = true);
@@ -54,6 +71,7 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
         body: jsonEncode({'phone': phone}),
       );
 
+<<<<<<< HEAD
       if (!mounted) return;
 
       if (response.statusCode == 200) {
@@ -64,10 +82,19 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
               phone: phone,
               role: widget.role,
             ),
+=======
+      if (response.statusCode == 200) {
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VerificationScreen(phone: phone),
+
           ),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
+
           SnackBar(
             content:
                 Text('Gagal mengirim OTP (${response.statusCode})'),
@@ -93,9 +120,28 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 18),
+
+          const SnackBar(content: Text('Gagal mengirim OTP')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      setState(() => loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Padding(
+        padding: const EdgeInsets.all(18),
+
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
+<<<<<<< HEAD
             SizedBox(height: MediaQuery.of(context).padding.top + 10),
 
             /// BACK BUTTON
@@ -187,10 +233,15 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
             const SizedBox(height: 25),
 
             /// BUTTON SEND OTP
+
+            TextField(controller: _country),
+            TextField(controller: _phone),
+            const SizedBox(height: 20),
+
             SizedBox(
               width: double.infinity,
-              height: 50,
               child: ElevatedButton(
+
                 onPressed: _loading ? null : _sendOtp,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF4CAF50),
@@ -241,6 +292,14 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
             ),
 
             const SizedBox(height: 40),
+
+                onPressed: loading ? null : _sendOtp,
+                child: loading
+                    ? const CircularProgressIndicator()
+                    : const Text('Kirim OTP'),
+              ),
+            )
+
           ],
         ),
       ),
