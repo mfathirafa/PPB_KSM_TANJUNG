@@ -54,12 +54,13 @@ Route::post('/verify-otp', [AuthController::class, 'verifyOtp']);
 Route::middleware('auth:sanctum')->group(function () {
 
     // Profile
-    Route::get('/profile', [UserController::class, 'me']);
+    Route::get('/me', [UserController::class, 'me']);
     // Tagihan user
     Route::get('/tagihan', [CustomerTagihanController::class, 'index']);
+    Route::get('/tagihan/aktif', [CustomerTagihanController::class, 'aktif']);
 
     // Pembayaran user
-    Route::post('/pembayaran', [PembayaranController::class, 'store']);
+    Route::post('/pembayaran/create', [PembayaranController::class, 'store']);
     Route::post('/pembayaran/upload-bukti', [PembayaranController::class, 'uploadBukti']);
     Route::get('/pembayaran/riwayat', [PembayaranController::class, 'riwayatCustomer']);
 

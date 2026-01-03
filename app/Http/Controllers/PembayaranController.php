@@ -14,7 +14,7 @@ class PembayaranController extends Controller
      * POST /pembayaran/create
      * Customer membuat pembayaran
      */
-    public function create(Request $request)
+    public function store(Request $request)
     {
         $request->validate([
             'tagihan_id' => 'required|exists:tagihans,id',

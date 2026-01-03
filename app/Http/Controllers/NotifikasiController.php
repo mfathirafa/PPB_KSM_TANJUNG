@@ -79,10 +79,24 @@ class NotifikasiController extends Controller
     {
         $user = $request->user();
 
-        return Notifikasi::where('user_id', $user->user_id)
-            ->orderBy('created_at', 'desc')
-            ->get();
+        $data = $user->notifikasis()
+            ->orderByDesc('created_at')
+            ->limit(5)
+            ->get()
+            ->map(function ($n) {
+                return [
+                    'id' => $n->id,
+                    'pesan' => $n->pesan,
+                    'dibaca' => $n->dibaca,
+                    'tanggal' => $n->created_at->format('Y-m-d H:i'),
+                ];
+            });
+
+        return response()->json([
+            'notifikasi' => $data
+        ]);
     }
+
 
 
     // ============================

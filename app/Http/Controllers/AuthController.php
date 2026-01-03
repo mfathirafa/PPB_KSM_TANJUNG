@@ -4,102 +4,109 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
     /**
+     * Normalize phone number to +62 format
+     */
+    protected function normalizePhone(string $phone): string
+    {
+        // hapus semua selain angka
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+
+        // 0812xxxx → +62812xxxx
+        if (str_starts_with($phone, '0')) {
+            return '+62' . substr($phone, 1);
+        }
+
+        // 62812xxxx → +62812xxxx
+        if (str_starts_with($phone, '62')) {
+            return '+' . $phone;
+        }
+
+        // 812xxxx → +62812xxxx
+        if (str_starts_with($phone, '8')) {
+            return '+62' . $phone;
+        }
+
+        return $phone;
+    }
+
+    /**
      * =========================
-     * SEND OTP (PUBLIC)
+     * SEND OTP
      * =========================
-     * POST /send-otp
      */
     public function sendOtp(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'phone' => 'required|string|min:10|max:20',
+        $request->validate([
+            'phone' => 'required|string',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Invalid phone number',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
+        $phone = $this->normalizePhone($request->phone);
 
-        $otp = rand(100000, 999999);
+        $otp = random_int(100000, 999999);
 
-        $user = User::updateOrCreate(
-            ['phone' => $request->phone],
+        User::updateOrCreate(
+            ['phone' => $phone],
             [
-                'otp' => $otp,
+                'otp' => (string) $otp,
                 'otp_expires_at' => now()->addMinutes(3),
             ]
         );
 
-        /**
-         * NOTE:
-         * Di production -> kirim ke WhatsApp API
-         * Di PPB / demo -> return OTP ke response
-         */
         return response()->json([
             'message' => 'OTP sent',
-            'otp' => $otp,
+            'otp' => $otp, // DEV ONLY — hapus di production
             'expires_in' => 180,
         ]);
     }
 
     /**
      * =========================
-     * VERIFY OTP (PUBLIC)
+     * VERIFY OTP
      * =========================
-     * POST /verify-otp
      */
     public function verifyOtp(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'phone' => 'required|string',
             'otp'   => 'required|string',
         ]);
 
-        if ($validator->fails()) {
-            return response()->json([
-                'message' => 'Invalid request',
-                'errors' => $validator->errors(),
-            ], 422);
-        }
+        $phone = $this->normalizePhone($request->phone);
 
-        $user = User::where('phone', $request->phone)->first();
+        $user = User::where('phone', $phone)->first();
 
         if (!$user) {
             return response()->json(['message' => 'User not found'], 404);
         }
 
         if (
+            !$user->otp ||
             $user->otp !== $request->otp ||
             !$user->otp_expires_at ||
-            Carbon::now()->gt($user->otp_expires_at)
+            now()->gt($user->otp_expires_at)
         ) {
             return response()->json(['message' => 'OTP invalid or expired'], 401);
         }
 
-        // OTP valid → hapus OTP
+        // OTP valid → hapus
         $user->update([
             'otp' => null,
             'otp_expires_at' => null,
         ]);
 
-        // Buat token Sanctum
         $token = $user->createToken('mobile')->plainTextToken;
 
         return response()->json([
             'message' => 'Login success',
-            'token' => $token,
-            'role' => $user->role,
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->name,
+            'token'   => $token,
+            'role'    => $user->role,
+            'user'    => [
+                'id'    => $user->id,
+                'name'  => $user->name,
                 'phone' => $user->phone,
             ],
         ]);
@@ -107,16 +114,13 @@ class AuthController extends Controller
 
     /**
      * =========================
-     * LOGOUT (AUTH)
+     * LOGOUT
      * =========================
-     * POST /logout
      */
     public function logout(Request $request)
     {
         $request->user()->currentAccessToken()->delete();
 
-        return response()->json([
-            'message' => 'Logged out',
-        ]);
+        return response()->json(['message' => 'Logged out']);
     }
 }

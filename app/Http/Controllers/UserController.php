@@ -7,14 +7,11 @@ use Illuminate\Http\Request;
 class UserController extends Controller
 {
     /**
-     * =========================
      * GET /me
-     * =========================
-     * Return authenticated user info
      */
     public function me(Request $request)
     {
-        $user = $request->user();
+        $user = $request->user()->load('pelanggan');
 
         return response()->json([
             'id' => $user->id,
@@ -22,10 +19,12 @@ class UserController extends Controller
             'phone' => $user->phone,
             'role' => $user->role,
 
-            // optional (future proof)
-            'has_profile' => $user->pelanggan ? true : false,
-
-            'created_at' => $user->created_at,
+            'pelanggan' => $user->pelanggan ? [
+                'id' => $user->pelanggan->id,
+                'nama' => $user->pelanggan->nama,
+                'alamat' => $user->pelanggan->alamat,
+                'no_hp' => $user->pelanggan->no_hp,
+            ] : null,
         ]);
     }
 }
