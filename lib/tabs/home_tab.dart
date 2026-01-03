@@ -4,22 +4,22 @@ import '../screens/pembayaran_screen.dart';
 
 class HomeTab extends StatelessWidget {
   final Map<String, dynamic> member;
-  final List<Map<String, dynamic>> bills;
-  const HomeTab({required this.member, required this.bills, super.key});
+  final List<dynamic> bills;
+
+  const HomeTab({
+    required this.member,
+    required this.bills,
+    super.key,
+  });
+
+  bool _isPaid(String status) =>
+      status == 'dibayar' || status == 'lunas';
 
   @override
   Widget build(BuildContext context) {
     final nextBill = bills.firstWhere(
-      (b) =>
-          (b['status'] ?? '') != 'Lunas' &&
-          (b['status'] ?? '') != 'Sudah Dibayar',
-      orElse: () => {
-        'id': 'N/A',
-        'title': 'Tidak ada tagihan',
-        'amount': 0.0,
-        'due': 'N/A',
-        'status': 'Lunas',
-      },
+      (b) => !_isPaid(b['status']),
+      orElse: () => null,
     );
 
     return SingleChildScrollView(
@@ -27,125 +27,97 @@ class HomeTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          /* --------------------------- Header --------------------------- */
-          const Text(
-            'Selamat datang, Lando Norris!',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+          /* ================= HEADER ================= */
+          Text(
+            'Selamat datang, ${member['name'] ?? '-'}!',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 4),
-          const Text(
-            'Minggu, 20 April 2025',
-            style: TextStyle(color: Colors.grey, fontSize: 13),
+          Text(
+            DateTime.now().toLocal().toString().substring(0, 10),
+            style: const TextStyle(color: Colors.grey, fontSize: 13),
           ),
+
           const SizedBox(height: 16),
 
-          /* ---------------------- Informasi Pelanggan ---------------------- */
+          /* ================= INFORMASI PELANGGAN ================= */
           const Text(
             'Informasi Pelanggan',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
+          _card(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                InfoRow(title: 'Nama Lengkap', value: member['name']),
-                const InfoRow(
+                InfoRow(
+                  title: 'Nama Lengkap',
+                  value: member['name'] ?? '-',
+                ),
+                InfoRow(
                   title: 'No. WhatsApp',
-                  value: '+62 812 3456 7890',
+                  value: member['phone'] ?? '-',
                 ),
-                const InfoRow(
+                InfoRow(
                   title: 'Alamat',
-                  value: 'Jl. Tanjung Raya No. 45, RT 03/RW 02',
+                  value: member['pelanggan']?['alamat'] ?? '-',
                 ),
-                const InfoRow(title: 'Role', value: 'Pelanggan'),
+                InfoRow(
+                  title: 'Role',
+                  value: member['role'] ?? '-',
+                ),
               ],
             ),
           ),
 
           const SizedBox(height: 16),
 
-          /* ---------------------- Informasi Tagihan ---------------------- */
+          /* ================= INFORMASI TAGIHAN ================= */
           const Text(
             'Informasi Tagihan',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(10),
-              boxShadow: const [
-                BoxShadow(
-                  color: Colors.black12,
-                  blurRadius: 4,
-                  offset: Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const InfoRow(title: 'Bulan', value: 'April 2025'),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text(
-                      'Status',
-                      style: TextStyle(color: Colors.black54),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
+
+          _card(
+            nextBill == null
+                ? const Text('Tidak ada tagihan aktif')
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const InfoRow(
+                        title: 'Bulan',
+                        value: '-',
                       ),
-                      decoration: BoxDecoration(
-                        color: Colors.amber[700],
-                        borderRadius: BorderRadius.circular(6),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Status',
+                            style: TextStyle(color: Colors.black54),
+                          ),
+                          _statusBadge(nextBill['status']),
+                        ],
                       ),
-                      child: Text(
-                        nextBill['status'],
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w500,
-                        ),
+                      const SizedBox(height: 6),
+                      InfoRow(
+                        title: 'Jumlah',
+                        value: 'Rp ${nextBill['jumlah']}',
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                InfoRow(title: 'Jumlah', value: 'Rp. ${nextBill['amount']}'),
-                InfoRow(title: 'Deadline', value: nextBill['due']),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.green,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(6),
+                      InfoRow(
+                        title: 'Tanggal',
+                        value: nextBill['tanggal'],
                       ),
-                    ),
-                    onPressed:
-                        nextBill['status'] != 'Lunas' &&
-                            nextBill['status'] != 'Sudah Dibayar'
-                        ? () {
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            padding:
+                                const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          onPressed: () {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
@@ -153,62 +125,76 @@ class HomeTab extends StatelessWidget {
                                     PembayaranScreen(bill: nextBill),
                               ),
                             );
-                          }
-                        : null,
-                    child: Text(
-                      nextBill['status'] != 'Lunas' &&
-                              nextBill['status'] != 'Sudah Dibayar'
-                          ? 'Bayar Sekarang'
-                          : 'Lunas',
-                    ),
+                          },
+                          child: const Text('Bayar Sekarang'),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ),
 
           const SizedBox(height: 20),
 
-          /* ---------------------- Notifikasi ---------------------- */
+          /* ================= NOTIFIKASI ================= */
           const Text(
             'Notifikasi',
             style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
           ),
           const SizedBox(height: 8),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFFFFF7E5),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.amber.shade200),
-            ),
-            child: const Row(
+          _card(
+            const Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Icon(Icons.notifications, color: Colors.black54),
                 SizedBox(width: 8),
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Tagihan bulan April 2025 telah dibuat. Harap segera melakukan pembayaran sebelum 30 April 2025.',
-                        style: TextStyle(fontSize: 13, color: Colors.black87),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        '20 April 2025, 08:30',
-                        style: TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
+                  child: Text(
+                    'Notifikasi akan muncul di sini.',
+                    style: TextStyle(fontSize: 13),
                   ),
                 ),
               ],
             ),
+            bgColor: const Color(0xFFFFF7E5),
           ),
+
           const SizedBox(height: 40),
         ],
+      ),
+    );
+  }
+
+  /* ================= HELPER UI ================= */
+
+  Widget _card(Widget child, {Color bgColor = Colors.white}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(10),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 4),
+        ],
+      ),
+      child: child,
+    );
+  }
+
+  Widget _statusBadge(String status) {
+    final label =
+        status == 'belum_dibayar' ? 'Belum Dibayar' : 'Lunas';
+    final color =
+        status == 'belum_dibayar' ? Colors.amber : Colors.green;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration:
+          BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)),
+      child: Text(
+        label,
+        style: const TextStyle(
+            color: Colors.white, fontWeight: FontWeight.w500),
       ),
     );
   }

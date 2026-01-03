@@ -10,30 +10,36 @@ class WhatsAppLogin extends StatefulWidget {
   const WhatsAppLogin({super.key, this.role = "customer"});
 
   @override
-  _WhatsAppLoginState createState() => _WhatsAppLoginState();
+  State<WhatsAppLogin> createState() => _WhatsAppLoginState();
 }
 
 class _WhatsAppLoginState extends State<WhatsAppLogin> {
   final _country = TextEditingController(text: '+62');
   final _phone = TextEditingController();
 
+  static const String baseUrl =
+      "http://10.0.2.2:8000/api"; // ANDROID EMULATOR
+
   // ============================
-  // SEND OTP KE LARAVEL BACKEND
+  // SEND OTP KE BACKEND LARAVEL
   // ============================
-  void _sendOtp() async {
-    if (_phone.text.isEmpty) {
+  Future<void> _sendOtp() async {
+    if (_phone.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Isi nomor terlebih dahulu')),
+        const SnackBar(content: Text('Nomor WhatsApp wajib diisi')),
       );
       return;
     }
 
-    final phone = "${_country.text}${_phone.text}";
+    final phone = "${_country.text}${_phone.text}".replaceAll(' ', '');
 
     try {
       final response = await http.post(
-        Uri.parse('http://127.0.0.1:8000/api/send-otp'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('$baseUrl/send-otp'),
+        headers: const {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode({'phone': phone}),
       );
 
@@ -41,11 +47,12 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
         final data = jsonDecode(response.body);
         final otp = data['otp'];
 
+        // ⚠️ OTP DITAMPILKAN HANYA UNTUK DEVELOPMENT
         showDialog(
           context: context,
           builder: (_) => AlertDialog(
-            title: const Text('Kode OTP'),
-            content: Text('Kode OTP dari server: $otp'),
+            title: const Text('Kode OTP (DEV MODE)'),
+            content: Text('OTP dari server: $otp'),
             actions: [
               TextButton(
                 onPressed: () {
@@ -55,40 +62,39 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
                     MaterialPageRoute(
                       builder: (_) => VerificationScreen(
                         phone: phone,
-                        otp: otp,
+                        otp: otp.toString(),
                         role: widget.role,
                       ),
                     ),
                   );
                 },
-                child: const Text('OK'),
+                child: const Text('LANJUT'),
               ),
             ],
           ),
         );
       } else {
+        final error = jsonDecode(response.body);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Gagal mengirim OTP (${response.statusCode})'),
-          ),
+          SnackBar(content: Text(error['message'] ?? 'Gagal mengirim OTP')),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error koneksi: $e')),
+      );
     }
   }
 
   // =========================
-  // UI HALAMAN LOGIN WA
+  // UI LOGIN WHATSAPP
   // =========================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 18.0),
+        padding: const EdgeInsets.symmetric(horizontal: 18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
@@ -134,9 +140,9 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
             Container(
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8.0),
+                borderRadius: BorderRadius.circular(8),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 12.0),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 children: [
                   SizedBox(
@@ -165,7 +171,8 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
                         hintText: 'Masukkan nomor WhatsApp Anda',
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.zero,
-                        hintStyle: TextStyle(color: Colors.grey, fontSize: 16),
+                        hintStyle:
+                            TextStyle(color: Colors.grey, fontSize: 16),
                       ),
                       style: const TextStyle(fontSize: 16),
                     ),
@@ -176,7 +183,7 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
 
             const SizedBox(height: 25),
 
-            // Button for sending OTP
+            // Send OTP Button
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -207,17 +214,18 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
               width: double.infinity,
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(8.0),
+                borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.grey.shade300),
               ),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Icon(Icons.info_outline, size: 20),
-                  const SizedBox(width: 10),
-                  const Expanded(
+                children: const [
+                  Icon(Icons.info_outline, size: 20),
+                  SizedBox(width: 10),
+                  Expanded(
                     child: Text(
-                      'Kami akan mengirimkan kode verifikasi melalui WhatsApp ke nomor yang Anda masukkan.',
+                      'Kode OTP akan dikirim melalui WhatsApp. '
+                      'Pada mode pengembangan, OTP ditampilkan langsung.',
                       style: TextStyle(fontSize: 14),
                     ),
                   ),

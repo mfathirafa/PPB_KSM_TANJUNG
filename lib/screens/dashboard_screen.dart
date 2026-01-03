@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../services/api_service.dart';
 import '../tabs/home_tab.dart';
 import '../tabs/cek_tagihan_tab.dart';
@@ -16,95 +17,103 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _index = 0;
 
-  String? token;
+  Map<String, dynamic>? member;
+  List<dynamic>? bills;
+  List<dynamic>? history;
 
-  Future<Map<String, dynamic>>? memberFuture;
-  Future<List<dynamic>>? billsFuture;
-  Future<List<dynamic>>? historyFuture;
+  bool isLoading = true;
+  String? error;
 
   @override
   void initState() {
     super.initState();
-    _loadTokenAndFetchData();
+    _loadDashboard();
   }
 
-  Future<void> _loadTokenAndFetchData() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedToken = prefs.getString('token');
+  Future<void> _loadDashboard() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
 
-    if (savedToken == null) {
-      // token hilang → harus login ulang
-      return;
+      if (token == null) {
+        throw Exception("Token tidak ditemukan, silakan login ulang");
+      }
+
+      final me = await ApiService.getMe(token);
+      final tagihan = await ApiService.getTagihan(token);
+      final riwayat = await ApiService.getRiwayat(token);
+
+      setState(() {
+        member = me;
+        bills = tagihan;
+        history = riwayat;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        error = e.toString();
+        isLoading = false;
+      });
     }
-
-    setState(() {
-      token = savedToken;
-      memberFuture = ApiService.getMe(token!);
-      billsFuture = ApiService.getTagihan(token!);
-      historyFuture = ApiService.getRiwayat(token!);
-    });
   }
 
   @override
   Widget build(BuildContext context) {
-    if (token == null ||
-        memberFuture == null ||
-        billsFuture == null ||
-        historyFuture == null) {
+    if (isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
 
-    return FutureBuilder(
-      future: Future.wait([
-        memberFuture!,
-        billsFuture!,
-        historyFuture!,
-      ]),
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
-          );
-        }
-
-        final member = snapshot.data![0] as Map<String, dynamic>;
-        final bills = snapshot.data![1] as List<dynamic>;
-        final history = snapshot.data![2] as List<dynamic>;
-
-        final pages = [
-          HomeTab(member: member, bills: bills),
-          CekTagihanTab(bills: bills),
-          RiwayatTab(history: history),
-          ProfileTab(member: member),
-        ];
-
-        return Scaffold(
-          appBar: AppBar(
-            title: const Text('KSM Tanjung'),
-            backgroundColor: Colors.white,
-            foregroundColor: Colors.black,
-            elevation: 0,
+    if (error != null) {
+      return Scaffold(
+        body: Center(
+          child: Text(
+            error!,
+            style: const TextStyle(color: Colors.red),
           ),
-          body: pages[_index],
-          bottomNavigationBar: BottomNavigationBar(
-            currentIndex: _index,
-            onTap: (i) => setState(() => _index = i),
-            type: BottomNavigationBarType.fixed,
-            items: const [
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.dashboard), label: 'Home'),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.receipt_long), label: 'Tagihan'),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.history), label: 'Riwayat'),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.person), label: 'Profil'),
-            ],
+        ),
+      );
+    }
+
+    final pages = [
+      HomeTab(member: member!, bills: bills!),
+      CekTagihanTab(bills: bills!),
+      RiwayatTab(history: history!),
+      ProfileTab(member: member!),
+    ];
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('KSM Tanjung'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
+      body: pages[_index],
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _index,
+        onTap: (i) => setState(() => _index = i),
+        type: BottomNavigationBarType.fixed,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.dashboard),
+            label: 'Home',
           ),
-        );
-      },
+          BottomNavigationBarItem(
+            icon: Icon(Icons.receipt_long),
+            label: 'Tagihan',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.history),
+            label: 'Riwayat',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profil',
+          ),
+        ],
+      ),
     );
   }
 }

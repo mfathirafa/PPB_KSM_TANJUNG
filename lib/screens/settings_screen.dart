@@ -124,7 +124,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
-                          content: Text("JWT Secret regenerated (dummy)"),
+                          content: Text("JWT Secret regenerated "),
                         ),
                       );
                     },

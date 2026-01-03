@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../services/api_service.dart';
-import 'manage_customer_screen.dart';
-import 'payment_history_screen.dart';
 import '../widgets/dialogs.dart';
 import '../widgets/admin_sidebar.dart';
-import 'payment_confirmation_screen.dart';
 
 class DashboardAdminScreen extends StatefulWidget {
   const DashboardAdminScreen({super.key});
@@ -16,44 +14,62 @@ class DashboardAdminScreen extends StatefulWidget {
 
 class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
   Map<String, dynamic>? admin;
-  List<dynamic> pelanggan = [];
-  List<dynamic> tagihan = [];
-  List<dynamic> pembayaran = [];
+  Map<String, dynamic>? dashboard;
+  bool isLoading = true;
+  String? error;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadDashboard();
   }
 
-  Future<String> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token') ?? '';
-  }
+  Future<void> _loadDashboard() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token');
 
-  Future<void> _loadData() async {
-    final token = await _getToken();
+      if (token == null) {
+        throw Exception("Token tidak ditemukan, silakan login ulang");
+      }
 
-    final adminRes = await ApiService.getMe(token);
-    final pelangganRes = await ApiService.getPelanggan(token);
-    final tagihanRes = await ApiService.getAdminTagihan(token);
-    final pembayaranRes = await ApiService.getAdminPembayaran(token);
+      final me = await ApiService.getMe(token);
+      final dash = await ApiService.getAdminDashboard(token);
 
-    setState(() {
-      admin = adminRes;
-      pelanggan = pelangganRes;
-      tagihan = tagihanRes;
-      pembayaran = pembayaranRes;
-    });
+      setState(() {
+        admin = me;
+        dashboard = dash;
+        isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        error = e.toString();
+        isLoading = false;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (admin == null) {
+    if (isLoading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
     }
+
+    if (error != null) {
+      return Scaffold(
+        body: Center(
+          child: Text(
+            error!,
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      );
+    }
+
+    final stats = dashboard!['stats'];
+    final List tagihan = dashboard!['tagihan_terbaru'];
 
     return Scaffold(
       drawer: const AdminSidebar(),
@@ -65,9 +81,9 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
               padding: const EdgeInsets.all(16.0),
               child: Column(
                 children: [
-                  _stats(),
+                  _stats(stats),
                   const SizedBox(height: 16),
-                  _tagihanTable(context),
+                  _tagihanTable(tagihan),
                 ],
               ),
             ),
@@ -94,15 +110,10 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Builder(
-                builder: (context) {
-                  return IconButton(
-                    icon: const Icon(Icons.menu,
-                        color: Colors.white, size: 28),
-                    onPressed: () {
-                      Scaffold.of(context).openDrawer();
-                    },
-                  );
-                },
+                builder: (context) => IconButton(
+                  icon: const Icon(Icons.menu, color: Colors.white, size: 28),
+                  onPressed: () => Scaffold.of(context).openDrawer(),
+                ),
               ),
               const Text(
                 "KSM Tanjung",
@@ -116,17 +127,15 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
                 onTap: () {
                   showDialog(
                     context: context,
-                    builder: (context) => LogoutConfirmationDialog(),
+                    builder: (_) => LogoutConfirmationDialog(),
                   );
                 },
                 child: Row(
                   children: const [
                     Text("Keluar",
-                        style:
-                            TextStyle(fontSize: 16, color: Colors.white)),
+                        style: TextStyle(fontSize: 16, color: Colors.white)),
                     SizedBox(width: 4),
-                    Icon(Icons.logout,
-                        color: Colors.white, size: 20),
+                    Icon(Icons.logout, color: Colors.white, size: 20),
                   ],
                 ),
               ),
@@ -139,7 +148,7 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
           ),
           const SizedBox(height: 4),
           Text(
-            DateTime.now().toString().substring(0, 10),
+            dashboard!['tanggal'],
             style: const TextStyle(fontSize: 14, color: Colors.white70),
           ),
         ],
@@ -148,40 +157,34 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
   }
 
   // =================== STATISTIK =====================
-  Widget _stats() {
-    final pending =
-        pembayaran.where((p) => p['status'] == 'pending').length;
-
-    final totalTagihan = tagihan.fold<int>(
-        0, (sum, t) => sum + int.parse(t['jumlah'].toString()));
-
+  Widget _stats(Map<String, dynamic> s) {
     final items = [
       {
         "icon": Icons.person,
         "title": "Total Pelanggan",
-        "value": pelanggan.length.toString(),
+        "value": s['total_pelanggan'].toString(),
         "subtitle": "Aktif",
         "color": Colors.green
       },
       {
         "icon": Icons.receipt_long,
-        "title": "Total Tagihan",
-        "value": "Rp $totalTagihan",
-        "subtitle": "${tagihan.length} Tagihan",
+        "title": "Tagihan Bulan Ini",
+        "value": "Rp ${s['total_tagihan_bulan_ini']}",
+        "subtitle": "${s['total_tagihan']} Tagihan",
         "color": Colors.orange
       },
       {
         "icon": Icons.payment,
         "title": "Total Pembayaran",
-        "value": pembayaran.length.toString(),
+        "value": s['total_pembayaran'].toString(),
         "subtitle": "Transaksi",
         "color": Colors.green
       },
       {
         "icon": Icons.history,
         "title": "Menunggu Verifikasi",
-        "value": pending.toString(),
-        "subtitle": "Perlu ditindak",
+        "value": s['pending_pembayaran'].toString(),
+        "subtitle": "Pending",
         "color": Colors.red
       },
     ];
@@ -242,15 +245,14 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
                   const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
           const Spacer(),
           Text(subtitle,
-              style:
-                  TextStyle(fontSize: 12, color: subtitleColor)),
+              style: TextStyle(fontSize: 12, color: subtitleColor)),
         ],
       ),
     );
   }
 
-  // =================== TAGIHAN TABLE =====================
-  Widget _tagihanTable(BuildContext context) {
+  // =================== TAGIHAN =====================
+  Widget _tagihanTable(List tagihan) {
     if (tagihan.isEmpty) {
       return const Text("Belum ada tagihan");
     }
