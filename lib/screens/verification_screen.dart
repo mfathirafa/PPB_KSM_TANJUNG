@@ -1,18 +1,18 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
-
-import '../config/api.dart';
+import '../models/dummy_data.dart';
 import 'dashboard_admin_screen.dart';
 import 'dashboard_screen.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
 class VerificationScreen extends StatefulWidget {
   final String phone;
+  final String otp;
+  final String role;
 
   const VerificationScreen({
     required this.phone,
+    required this.otp,
+    this.role = "customer",
     super.key,
   });
 
@@ -23,7 +23,6 @@ class VerificationScreen extends StatefulWidget {
 class _VerificationScreenState extends State<VerificationScreen> {
   final controllers = List.generate(6, (_) => TextEditingController());
   final focusNodes = List.generate(6, (_) => FocusNode());
-  bool loading = false;
 
   @override
   void initState() {
@@ -40,136 +39,232 @@ class _VerificationScreenState extends State<VerificationScreen> {
     super.dispose();
   }
 
-  Future<void> _verify() async {
-    final otp = controllers.map((c) => c.text).join();
+  void _verify() {
+    final code = controllers.map((c) => c.text).join();
 
-    if (otp.length != 6) {
+    if (code == widget.otp) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('OTP harus 6 digit')),
-      );
-      return;
-    }
-
-    setState(() => loading = true);
-
-    try {
-      final response = await http.post(
-        Uri.parse('${ApiConfig.baseUrl}/verify-otp'),
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'phone': widget.phone,
-          'otp': otp,
-        }),
+        const SnackBar(content: Text('Verifikasi Berhasil! (dummy)')),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', data['token']);
-        await prefs.setString('role', data['role']);
-
-        if (!mounted) return;
-
-        if (data['role'] == 'admin') {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const DashboardAdminScreen()),
-          );
-        } else {
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (_) => const DashboardScreen()),
-          );
-        }
+      // ✅ Redirect sesuai role
+      if (widget.role == "admin") {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const DashboardAdminScreen()),
+          (route) => false,
+        );
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('OTP salah atau kadaluarsa')),
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          (route) => false,
         );
       }
-    } catch (e) {
+    } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
+        const SnackBar(content: Text('Kode Verifikasi Salah!')),
       );
-    } finally {
-      setState(() => loading = false);
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    const whatsappGreen = Color(0xFF25D366);
+    final whatsappGreen = const Color(0xFF25D366);
 
     return Scaffold(
       appBar: AppBar(
+        leading: Padding(
+          padding: const EdgeInsets.only(left: 15.0),
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: 40,
+              height: 40,
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    spreadRadius: 1,
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: const Icon(
+                Icons.arrow_back_ios_new,
+                color: Colors.black,
+                size: 20,
+              ),
+            ),
+          ),
+        ),
+        title: const Text(''),
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new),
-          onPressed: () => Navigator.pop(context),
-        ),
+        leadingWidth: 60,
       ),
+
       body: SingleChildScrollView(
-        padding: const EdgeInsets.symmetric(horizontal: 25),
+        padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 0),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
+            FaIcon(FontAwesomeIcons.whatsapp, color: whatsappGreen, size: 60),
             const SizedBox(height: 20),
-            const FaIcon(FontAwesomeIcons.whatsapp,
-                color: whatsappGreen, size: 60),
-            const SizedBox(height: 20),
+
             const Text(
               'Verifikasi dengan WhatsApp',
-              style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.bold,
+                color: Colors.black,
+              ),
+              textAlign: TextAlign.center,
             ),
             const SizedBox(height: 10),
+
             Text(
-              'Masukkan kode yang dikirim ke ${widget.phone}',
+              'Masukkan Kode Verifikasi yang telah dikirim ke nomor ${widget.phone}',
+              style: const TextStyle(fontSize: 16, color: Colors.grey),
               textAlign: TextAlign.center,
-              style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 30),
 
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(6, (i) {
-                return SizedBox(
-                  width: 45,
-                  child: TextField(
-                    controller: controllers[i],
-                    focusNode: focusNodes[i],
-                    textAlign: TextAlign.center,
-                    keyboardType: TextInputType.number,
-                    maxLength: 1,
-                    decoration: const InputDecoration(counterText: ''),
-                    onChanged: (v) {
-                      if (v.isNotEmpty && i < 5) {
-                        focusNodes[i + 1].requestFocus();
-                      }
-                    },
+                return Flexible(
+                  child: Container(
+                    height: 55,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      border: Border.all(
+                        color: Colors.grey.shade400,
+                        width: 1.5,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: TextField(
+                      controller: controllers[i],
+                      focusNode: focusNodes[i],
+                      textAlign: TextAlign.center,
+                      keyboardType: TextInputType.number,
+                      maxLength: 1,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      decoration: const InputDecoration(
+                        counterText: '',
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      onChanged: (value) {
+                        if (value.isNotEmpty && i < 5) {
+                          focusNodes[i + 1].requestFocus();
+                        } else if (value.isEmpty && i > 0) {
+                          focusNodes[i - 1].requestFocus();
+                        }
+                        if (i == 5 && value.isNotEmpty) {
+                          FocusScope.of(context).unfocus();
+                        }
+                      },
+                    ),
                   ),
                 );
               }),
             ),
-
             const SizedBox(height: 30),
 
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: loading ? null : _verify,
+                onPressed: _verify,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: whatsappGreen,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  elevation: 0,
                 ),
-                child: loading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'Verifikasi',
-                        style: TextStyle(
-                            fontSize: 18, fontWeight: FontWeight.bold),
-                      ),
+                child: const Text(
+                  'Verifikasi Kode',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
+            const SizedBox(height: 20),
+
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(15),
+              decoration: BoxDecoration(
+                color: Colors.grey[100],
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.grey[600]),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Kami akan mengirimkan Kode Verifikasi melalui WhatsApp ke nomor yang Anda masukkan',
+                      style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            RichText(
+              textAlign: TextAlign.center,
+              text: TextSpan(
+                text: 'Dengan melanjutkan, Anda menyetujui\n',
+                style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                children: [
+                  TextSpan(
+                    text: 'Syarat & Ketentuan',
+                    style: TextStyle(
+                      color: Colors.red[700],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const TextSpan(text: ' serta '),
+                  TextSpan(
+                    text: 'Kebijakan Privasi',
+                    style: TextStyle(
+                      color: Colors.red[700],
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            TextButton(
+              onPressed: () {
+                final newOtp = generateOtp();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Mengirim ulang OTP (dummy): $newOtp'),
+                  ),
+                );
+              },
+              style: TextButton.styleFrom(
+                foregroundColor: whatsappGreen,
+                textStyle: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              child: const Text('Kirim ulang kode'),
+            ),
+            const SizedBox(height: 20),
           ],
         ),
       ),
