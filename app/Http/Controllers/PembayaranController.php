@@ -11,8 +11,10 @@ use App\Http\Controllers\NotifikasiController;
 class PembayaranController extends Controller
 {
     /**
+     * ============================
+     * CUSTOMER MEMBUAT PEMBAYARAN
      * POST /pembayaran/create
-     * Customer membuat pembayaran
+     * ============================
      */
     public function store(Request $request)
     {
@@ -23,29 +25,38 @@ class PembayaranController extends Controller
 
         $user = $request->user();
 
-        // 🔒 Role check
-        if ($user->role !== 'customer') {
+        if ($user->role !== 'customer' || !$user->pelanggan) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        // 🔒 Ambil tagihan & pastikan milik customer
+        // Pastikan tagihan milik customer
         $tagihan = Tagihan::where('id', $request->tagihan_id)
-            ->where('pelanggan_id', optional($user->pelanggan)->id)
+            ->where('pelanggan_id', $user->pelanggan->id)
             ->firstOrFail();
 
-        // 🔒 Cegah double payment (pending / paid)
-        $existing = Pembayaran::where('tagihan_id', $tagihan->id)
-            ->whereIn('status', ['pending', 'approved'])
+        // ❗ BLOK JIKA ADA PEMBAYARAN PENDING
+        $pending = Pembayaran::where('tagihan_id', $tagihan->id)
+            ->where('status', 'pending')
             ->first();
 
-        if ($existing) {
+        if ($pending) {
             return response()->json([
-                'message' => 'Pembayaran sudah ada',
-                'pembayaran' => $existing
+                'message' => 'Masih ada pembayaran menunggu verifikasi'
             ], 409);
         }
 
-        // ✅ Buat pembayaran
+        // ❗ CEGAH BAYAR TAGIHAN YANG SUDAH LUNAS
+        $confirmed = Pembayaran::where('tagihan_id', $tagihan->id)
+            ->where('status', 'confirmed')
+            ->exists();
+
+        if ($confirmed) {
+            return response()->json([
+                'message' => 'Tagihan sudah lunas'
+            ], 409);
+        }
+
+        // ✅ BUAT PEMBAYARAN BARU
         $pembayaran = Pembayaran::create([
             'user_id'      => $user->id,
             'tagihan_id'   => $tagihan->id,
@@ -55,23 +66,27 @@ class PembayaranController extends Controller
             'status'       => 'pending',
         ]);
 
-        // 🔔 Kirim notifikasi ke admin
+        // 🔔 NOTIFIKASI KE ADMIN
         $adminIds = User::where('role', 'admin')->pluck('id');
         foreach ($adminIds as $adminId) {
             NotifikasiController::createPembayaranNotif(
                 $adminId,
-                "Pembayaran baru menunggu verifikasi"
+                'Pembayaran baru menunggu verifikasi'
             );
         }
 
         return response()->json([
             'message' => 'Pembayaran berhasil dibuat',
-            'pembayaran' => $pembayaran
+            'status'  => 'menunggu_verifikasi',
+            'pembayaran_id' => $pembayaran->id
         ], 201);
     }
 
     /**
+     * ============================
+     * UPLOAD BUKTI PEMBAYARAN
      * POST /pembayaran/upload-bukti
+     * ============================
      */
     public function uploadBukti(Request $request)
     {
@@ -95,13 +110,15 @@ class PembayaranController extends Controller
         ]);
 
         return response()->json([
-            'message' => 'Bukti pembayaran berhasil diupload',
-            'path' => $path
+            'message' => 'Bukti pembayaran berhasil diupload'
         ]);
     }
 
     /**
+     * ============================
+     * RIWAYAT PEMBAYARAN CUSTOMER
      * GET /pembayaran/riwayat
+     * ============================
      */
     public function riwayatCustomer(Request $request)
     {
@@ -122,12 +139,15 @@ class PembayaranController extends Controller
                     'tanggal' => $p->created_at->format('Y-m-d H:i'),
                     'jumlah' => $p->jumlah_bayar,
                     'metode' => $p->metode,
-                    'status' => $p->status,
+                    'status' => match ($p->status) {
+                        'pending'   => 'menunggu_verifikasi',
+                        'confirmed' => 'lunas',
+                        'rejected'  => 'ditolak',
+                        default     => $p->status,
+                    },
                 ];
             });
 
-        return response()->json([
-            'riwayat' => $data
-        ]);
+        return response()->json(['riwayat' => $data]);
     }
 }

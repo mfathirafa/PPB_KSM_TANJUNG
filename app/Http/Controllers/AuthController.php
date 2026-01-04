@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
@@ -12,25 +13,23 @@ class AuthController extends Controller
      */
     protected function normalizePhone(string $phone): string
     {
-        // hapus semua selain angka
         $phone = preg_replace('/[^0-9]/', '', $phone);
 
-        // 0812xxxx → +62812xxxx
         if (str_starts_with($phone, '0')) {
             return '+62' . substr($phone, 1);
         }
 
-        // 62812xxxx → +62812xxxx
         if (str_starts_with($phone, '62')) {
             return '+' . $phone;
         }
 
-        // 812xxxx → +62812xxxx
         if (str_starts_with($phone, '8')) {
             return '+62' . $phone;
         }
 
-        return $phone;
+        throw ValidationException::withMessages([
+            'phone' => 'Format nomor WhatsApp tidak valid'
+        ]);
     }
 
     /**
@@ -53,12 +52,13 @@ class AuthController extends Controller
             [
                 'otp' => (string) $otp,
                 'otp_expires_at' => now()->addMinutes(3),
+                'role' => 'customer', // 🔒 DEFAULT ROLE
             ]
         );
 
         return response()->json([
             'message' => 'OTP sent',
-            'otp' => $otp, // DEV ONLY — hapus di production
+            'otp' => $otp, // DEV ONLY
             'expires_in' => 180,
         ]);
     }
@@ -72,27 +72,26 @@ class AuthController extends Controller
     {
         $request->validate([
             'phone' => 'required|string',
-            'otp'   => 'required|string',
+            'otp'   => 'required|string|size:6',
         ]);
 
         $phone = $this->normalizePhone($request->phone);
 
         $user = User::where('phone', $phone)->first();
 
-        if (!$user) {
-            return response()->json(['message' => 'User not found'], 404);
-        }
-
         if (
+            !$user ||
             !$user->otp ||
             $user->otp !== $request->otp ||
             !$user->otp_expires_at ||
             now()->gt($user->otp_expires_at)
         ) {
-            return response()->json(['message' => 'OTP invalid or expired'], 401);
+            return response()->json([
+                'message' => 'OTP invalid or expired'
+            ], 401);
         }
 
-        // OTP valid → hapus
+        // 🔒 OTP valid → hapus agar tidak bisa reuse
         $user->update([
             'otp' => null,
             'otp_expires_at' => null,

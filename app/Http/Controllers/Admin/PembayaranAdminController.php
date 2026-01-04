@@ -4,82 +4,130 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\Pembayaran;
-use App\Models\Tagihan;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use App\Http\Controllers\NotifikasiController;
 
 class PembayaranAdminController extends Controller
 {
     /**
-     * List semua pembayaran
+     * GET /admin/pembayaran
      */
     public function index()
     {
-        $data = Pembayaran::with(['user', 'tagihan'])
-            ->orderBy('created_at', 'desc')
-            ->get();
-
         return response()->json([
-            'pembayaran' => $data
+            'pembayaran' => Pembayaran::with([
+                'user',
+                'tagihan.pelanggan'
+            ])
+            ->orderByDesc('created_at')
+            ->get()
         ]);
     }
 
     /**
-     * Approve pembayaran
+     * PUT /admin/pembayaran/{id}/approve
      */
     public function approve($id, Request $request)
     {
         $admin = $request->user();
 
-        $pembayaran = Pembayaran::findOrFail($id);
-
-        if ($pembayaran->status !== 'pending') {
-            return response()->json([
-                'message' => 'Pembayaran sudah diproses'
-            ], 400);
+        if ($admin->role !== 'admin') {
+            return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $pembayaran->update([
-            'status' => 'confirmed',
-            'verified_by' => $admin->id,
-        ]);
+        DB::beginTransaction();
 
-        // Update status tagihan
-        $pembayaran->tagihan->update([
-            'status' => 'lunas'
-        ]);
+        try {
+            $p = Pembayaran::with('tagihan')->findOrFail($id);
 
-        return response()->json([
-            'message' => 'Pembayaran disetujui'
-        ]);
-        NotifikasiController::createPembayaranNotif(
-            $pembayaran->user_id,
-            "Pembayaran Anda telah dikonfirmasi"
-        );
+            if ($p->status !== 'pending') {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Pembayaran sudah diproses'
+                ], 400);
+            }
+
+            // ✅ Update pembayaran
+            $p->update([
+                'status'      => 'confirmed',
+                'verified_by' => $admin->id,
+            ]);
+
+            // ✅ Update tagihan
+            $p->tagihan->update([
+                'status' => 'lunas'
+            ]);
+
+            // 🔔 Notifikasi ke customer
+            NotifikasiController::createPembayaranNotif(
+                $p->user_id,
+                "Pembayaran Anda telah dikonfirmasi"
+            );
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Pembayaran disetujui'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Gagal menyetujui pembayaran',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
-     * Reject pembayaran
+     * PUT /admin/pembayaran/{id}/reject
      */
-    public function reject($id)
+    public function reject($id, Request $request)
     {
-        $pembayaran = Pembayaran::findOrFail($id);
+        $admin = $request->user();
 
-        if ($pembayaran->status !== 'pending') {
-            return response()->json([
-                'message' => 'Pembayaran sudah diproses'
-            ], 400);
+        if ($admin->role !== 'admin') {
+            return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        $pembayaran->update([
-            'status' => 'rejected'
-        ]);
+        DB::beginTransaction();
 
-        return response()->json([
-            'message' => 'Pembayaran ditolak'
-        ]);
-        NotifikasiController::createPembayaranNotif(
-            $pembayaran->user_id,
-            "Pembayaran Anda ditolak"
-        );
+        try {
+            $p = Pembayaran::with('tagihan')->findOrFail($id);
+
+            if ($p->status !== 'pending') {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'Pembayaran sudah diproses'
+                ], 400);
+            }
+
+            // ❌ Reject pembayaran
+            $p->update([
+                'status' => 'rejected'
+            ]);
+
+            // 🔔 Notifikasi ke customer
+            NotifikasiController::createPembayaranNotif(
+                $p->user_id,
+                "Pembayaran Anda ditolak"
+            );
+
+            DB::commit();
+
+            return response()->json([
+                'message' => 'Pembayaran ditolak'
+            ]);
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                'message' => 'Gagal menolak pembayaran',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
     }
 }

@@ -3,11 +3,10 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use App\Models\User;
 use App\Models\Pelanggan;
 use App\Models\Tagihan;
 use App\Models\Pembayaran;
+use Illuminate\Http\Request;
 use Carbon\Carbon;
 
 class DashboardAdminController extends Controller
@@ -22,8 +21,15 @@ class DashboardAdminController extends Controller
         // =========================
         $totalPelanggan = Pelanggan::count();
         $totalTagihan   = Tagihan::count();
-        $totalPembayaran = Pembayaran::count();
 
+        // TOTAL TRANSAKSI PEMBAYARAN
+        $totalTransaksi = Pembayaran::count();
+
+        // TOTAL UANG MASUK (CONFIRMED SAJA)
+        $totalPembayaran = Pembayaran::where('status', 'confirmed')
+            ->sum('jumlah_bayar');
+
+        // PEMBAYARAN PENDING
         $pendingPembayaran = Pembayaran::where('status', 'pending')->count();
 
         // =========================
@@ -37,26 +43,27 @@ class DashboardAdminController extends Controller
         // TAGIHAN TERBARU (5 DATA)
         // =========================
         $tagihanTerbaru = Tagihan::with('pelanggan.user')
-            ->orderBy('created_at', 'desc')
+            ->orderByDesc('created_at')
             ->limit(5)
             ->get()
             ->map(function ($t) {
                 return [
-                    'id'       => $t->id,
-                    'nama'     => $t->pelanggan->nama ?? '-',
-                    'tanggal'  => $t->tanggal,
-                    'jumlah'   => $t->jumlah,
-                    'status'   => $t->status,
+                    'id'      => $t->id,
+                    'nama'    => $t->pelanggan->nama ?? '-',
+                    'tanggal' => $t->tanggal->format('Y-m-d'),
+                    'jumlah'  => $t->jumlah,
+                    'status'  => $t->status,
                 ];
             });
 
         return response()->json([
             'stats' => [
-                'total_pelanggan'        => $totalPelanggan,
-                'total_tagihan'          => $totalTagihan,
-                'total_pembayaran'       => $totalPembayaran,
-                'pending_pembayaran'     => $pendingPembayaran,
-                'total_tagihan_bulan_ini'=> $totalTagihanBulanIni,
+                'total_pelanggan'          => $totalPelanggan,
+                'total_tagihan'            => $totalTagihan,
+                'total_transaksi'          => $totalTransaksi,
+                'total_pembayaran'         => $totalPembayaran,
+                'pending_pembayaran'       => $pendingPembayaran,
+                'total_tagihan_bulan_ini'  => $totalTagihanBulanIni,
             ],
             'tagihan_terbaru' => $tagihanTerbaru,
             'tanggal' => now()->format('Y-m-d'),

@@ -18,7 +18,6 @@ class LaporanKeuanganController extends Controller
      */
     public function index(Request $request)
     {
-        // 🔒 Security (defensive, walau sudah ada middleware)
         if ($request->user()->role !== 'admin') {
             return response()->json(['message' => 'Forbidden'], 403);
         }
@@ -26,7 +25,7 @@ class LaporanKeuanganController extends Controller
         /* ======================
          * SUMMARY
          * ====================== */
-        $totalPendapatan = Pembayaran::where('status', 'approved')
+        $totalPendapatan = Pembayaran::where('status', 'confirmed')
             ->sum('jumlah_bayar');
 
         $totalTagihan = Tagihan::count();
@@ -40,7 +39,7 @@ class LaporanKeuanganController extends Controller
             return [
                 'tanggal' => $date,
                 'total' => Pembayaran::whereDate('created_at', $date)
-                    ->where('status', 'approved')
+                    ->where('status', 'confirmed')
                     ->sum('jumlah_bayar'),
             ];
         });
@@ -49,8 +48,8 @@ class LaporanKeuanganController extends Controller
          * TRANSAKSI TERBARU
          * ====================== */
         $transactions = Pembayaran::with('tagihan.pelanggan')
-            ->where('status', 'approved')
-            ->latest()
+            ->where('status', 'confirmed')
+            ->orderByDesc('created_at')
             ->limit(5)
             ->get()
             ->map(function ($p) {
@@ -80,14 +79,10 @@ class LaporanKeuanganController extends Controller
      */
     public function show(Request $request, string $periode)
     {
-        // 🔒 Security
         if ($request->user()->role !== 'admin') {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        /* ======================
-         * VALIDASI PERIODE
-         * ====================== */
         try {
             $start = Carbon::createFromFormat('Y-m', $periode)->startOfMonth();
             $end   = Carbon::createFromFormat('Y-m', $periode)->endOfMonth();
@@ -101,10 +96,10 @@ class LaporanKeuanganController extends Controller
          * SUMMARY
          * ====================== */
         $totalPendapatan = Pembayaran::whereBetween('created_at', [$start, $end])
-            ->where('status', 'approved')
+            ->where('status', 'confirmed')
             ->sum('jumlah_bayar');
 
-        $totalTagihan = Tagihan::whereBetween('created_at', [$start, $end])
+        $totalTagihan = Tagihan::whereBetween('tanggal', [$start, $end])
             ->count();
 
         /* ======================
@@ -117,7 +112,7 @@ class LaporanKeuanganController extends Controller
             $chart[] = [
                 'tanggal' => $cursor->toDateString(),
                 'total' => Pembayaran::whereDate('created_at', $cursor)
-                    ->where('status', 'approved')
+                    ->where('status', 'confirmed')
                     ->sum('jumlah_bayar'),
             ];
             $cursor->addDay();
@@ -128,7 +123,7 @@ class LaporanKeuanganController extends Controller
          * ====================== */
         $transactions = Pembayaran::with('tagihan.pelanggan')
             ->whereBetween('created_at', [$start, $end])
-            ->where('status', 'approved')
+            ->where('status', 'confirmed')
             ->orderByDesc('created_at')
             ->get()
             ->map(function ($p) {

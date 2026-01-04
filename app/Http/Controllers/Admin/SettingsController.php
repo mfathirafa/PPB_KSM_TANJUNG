@@ -11,23 +11,32 @@ class SettingsController extends Controller
 {
     /**
      * GET /admin/settings
-     * Ambil semua pengaturan
      */
-    public function show()
+    public function show(Request $request)
     {
-        $settings = Setting::all()
-            ->pluck('value', 'key');
+        $this->ensureAdmin($request);
 
-        return response()->json($settings);
+        return response()->json(
+            Setting::pluck('value', 'key')
+        );
     }
 
     /**
      * PUT /admin/settings
-     * Update banyak setting sekaligus
      */
     public function update(Request $request)
     {
-        foreach ($request->all() as $key => $value) {
+        $this->ensureAdmin($request);
+
+        // 🔒 Hanya key yang diizinkan
+        $allowedKeys = [
+            'app_name',
+            'contact_phone',
+            'contact_email',
+            'payment_note',
+        ];
+
+        foreach ($request->only($allowedKeys) as $key => $value) {
             Setting::updateOrCreate(
                 ['key' => $key],
                 ['value' => $value]
@@ -41,10 +50,11 @@ class SettingsController extends Controller
 
     /**
      * POST /admin/settings/regenerate-jwt
-     * Regenerate JWT / APP KEY
      */
-    public function regenerateJwt()
+    public function regenerateJwt(Request $request)
     {
+        $this->ensureAdmin($request);
+
         $newKey = 'base64:' . base64_encode(
             random_bytes(32)
         );
@@ -57,5 +67,17 @@ class SettingsController extends Controller
         return response()->json([
             'message' => 'JWT Secret berhasil diperbarui'
         ]);
+    }
+
+    /**
+     * ======================
+     * GUARD
+     * ======================
+     */
+    private function ensureAdmin(Request $request): void
+    {
+        if ($request->user()->role !== 'admin') {
+            abort(403, 'Forbidden');
+        }
     }
 }

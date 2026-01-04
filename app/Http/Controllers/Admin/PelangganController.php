@@ -11,22 +11,43 @@ use Illuminate\Support\Facades\DB;
 class PelangganController extends Controller
 {
     /**
+     * Normalize phone number to +62 format
+     */
+    protected function normalizePhone(string $phone): string
+    {
+        $phone = preg_replace('/[^0-9]/', '', $phone);
+
+        if (str_starts_with($phone, '0')) {
+            return '+62' . substr($phone, 1);
+        }
+
+        if (str_starts_with($phone, '62')) {
+            return '+' . $phone;
+        }
+
+        if (str_starts_with($phone, '8')) {
+            return '+62' . $phone;
+        }
+
+        throw new \Exception('Invalid phone number');
+    }
+
+    /**
      * GET /admin/pelanggan
-     * List semua pelanggan
      */
     public function index()
     {
         $pelanggans = Pelanggan::with('user')
-            ->orderBy('created_at', 'desc')
+            ->orderByDesc('created_at')
             ->get()
             ->map(function ($p) {
                 return [
-                    'id'        => $p->id,
-                    'nama'      => $p->nama,
-                    'phone'     => $p->no_hp,
-                    'alamat'    => $p->alamat,
-                    'user_id'   => $p->user_id,
-                    'created_at' => $p->created_at->format('Y-m-d'),
+                    'id'         => $p->id,
+                    'nama'       => $p->nama,
+                    'phone'      => $p->no_hp,
+                    'alamat'     => $p->alamat,
+                    'user_id'    => $p->user_id,
+                    'created_at'=> $p->created_at->format('Y-m-d'),
                 ];
             });
 
@@ -35,7 +56,6 @@ class PelangganController extends Controller
 
     /**
      * POST /admin/pelanggan
-     * Admin membuat pelanggan baru
      */
     public function store(Request $request)
     {
@@ -48,34 +68,35 @@ class PelangganController extends Controller
         DB::beginTransaction();
 
         try {
-            // 1️⃣ Buat user customer
-            // 1️⃣ Cari user berdasarkan phone
-        $user = User::where('phone', $request->phone)->first();
+            $phone = $this->normalizePhone($request->phone);
 
-        // 2️⃣ Kalau belum ada → buat user
-        if (!$user) {
-            $user = User::create([
-                'name'  => $request->nama,
-                'phone' => $request->phone,
-                'role'  => 'customer',
+            // Cari atau buat user
+            $user = User::where('phone', $phone)->first();
+
+            if (!$user) {
+                $user = User::create([
+                    'name'  => $request->nama,
+                    'phone' => $phone,
+                    'role'  => 'customer',
+                ]);
+            }
+
+            // Cegah pelanggan ganda
+            if (Pelanggan::where('user_id', $user->id)->exists()) {
+                DB::rollBack();
+                return response()->json([
+                    'message' => 'User ini sudah terdaftar sebagai pelanggan'
+                ], 422);
+            }
+
+            // Buat pelanggan
+            $pelanggan = Pelanggan::create([
+                'user_id' => $user->id,
+                'nama'    => $request->nama,
+                'alamat'  => $request->alamat,
+                'no_hp'   => $phone,
             ]);
-        }
 
-        // 3️⃣ Cegah pelanggan ganda
-        if (Pelanggan::where('user_id', $user->id)->exists()) {
-            DB::rollBack();
-            return response()->json([
-                'message' => 'User ini sudah menjadi pelanggan'
-            ], 422);
-        }
-
-        // 4️⃣ Jadikan pelanggan
-        $pelanggan = Pelanggan::create([
-            'user_id' => $user->id,
-            'nama'    => $request->nama,
-            'alamat'  => $request->alamat,
-            'no_hp'   => $request->phone,
-        ]);
             DB::commit();
 
             return response()->json([
@@ -128,7 +149,7 @@ class PelangganController extends Controller
             'alamat' => $request->alamat,
         ]);
 
-        // sync ke user
+        // Sinkronkan ke user
         $pelanggan->user->update([
             'name' => $request->nama,
         ]);
@@ -149,7 +170,7 @@ class PelangganController extends Controller
             return response()->json(['message' => 'Pelanggan tidak ditemukan'], 404);
         }
 
-        // hapus user → cascade ke pelanggan
+        // ⚠️ Hanya hapus pelanggan, user tetap ada
         $pelanggan->delete();
 
         return response()->json([

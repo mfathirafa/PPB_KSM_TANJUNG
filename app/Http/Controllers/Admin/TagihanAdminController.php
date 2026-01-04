@@ -7,26 +7,28 @@ use Illuminate\Http\Request;
 use App\Models\Tagihan;
 use App\Models\Pelanggan;
 use App\Models\Notifikasi;
+use App\Models\Pembayaran;
 use Carbon\Carbon;
 
 class TagihanAdminController extends Controller
 {
     /**
      * GET /admin/tagihan
-     * List semua tagihan
      */
-    public function index()
+    public function index(Request $request)
     {
+        $this->ensureAdmin($request);
+
         $tagihans = Tagihan::with('pelanggan.user')
             ->orderBy('tanggal', 'desc')
             ->get()
             ->map(function ($t) {
                 return [
-                    'id'       => $t->id,
-                    'nama'     => $t->pelanggan->nama,
-                    'jumlah'   => $t->jumlah,
-                    'status'   => $t->status,
-                    'tanggal'  => $t->tanggal->format('Y-m-d'),
+                    'id'      => $t->id,
+                    'nama'    => $t->pelanggan->nama ?? '-',
+                    'jumlah'  => $t->jumlah,
+                    'status'  => $t->status,
+                    'tanggal' => $t->tanggal->format('Y-m-d'),
                 ];
             });
 
@@ -35,10 +37,11 @@ class TagihanAdminController extends Controller
 
     /**
      * POST /admin/tagihan
-     * Admin membuat tagihan
      */
     public function store(Request $request)
     {
+        $this->ensureAdmin($request);
+
         $request->validate([
             'pelanggan_id' => 'required|exists:pelanggans,id',
             'jumlah'       => 'required|integer|min:1000',
@@ -47,7 +50,6 @@ class TagihanAdminController extends Controller
 
         $pelanggan = Pelanggan::with('user')->findOrFail($request->pelanggan_id);
 
-        // 1️⃣ Simpan tagihan
         $tagihan = Tagihan::create([
             'pelanggan_id' => $pelanggan->id,
             'jumlah'       => $request->jumlah,
@@ -55,7 +57,7 @@ class TagihanAdminController extends Controller
             'status'       => 'belum_dibayar',
         ]);
 
-        // 2️⃣ Kirim notifikasi ke customer
+        // 🔔 Notifikasi ke customer
         Notifikasi::create([
             'user_id' => $pelanggan->user_id,
             'pesan'   => "Tagihan baru sebesar Rp {$tagihan->jumlah} telah dibuat.",
@@ -74,10 +76,13 @@ class TagihanAdminController extends Controller
     /**
      * GET /admin/tagihan/{id}
      */
-    public function show($id)
+    public function show(Request $request, $id)
     {
-        $tagihan = Tagihan::with('pelanggan.user')->findOrFail($id);
-        return response()->json($tagihan);
+        $this->ensureAdmin($request);
+
+        return response()->json(
+            Tagihan::with('pelanggan.user')->findOrFail($id)
+        );
     }
 
     /**
@@ -85,15 +90,19 @@ class TagihanAdminController extends Controller
      */
     public function update(Request $request, $id)
     {
+        $this->ensureAdmin($request);
+
         $tagihan = Tagihan::findOrFail($id);
 
         $request->validate([
             'jumlah'  => 'required|integer|min:1000',
             'tanggal' => 'required|date',
-            'status'  => 'required|in:belum_dibayar,dibayar,lunas',
+            'status'  => 'required|in:belum_dibayar,pending,lunas',
         ]);
 
-        $tagihan->update($request->only('jumlah', 'tanggal', 'status'));
+        $tagihan->update(
+            $request->only('jumlah', 'tanggal', 'status')
+        );
 
         return response()->json([
             'message' => 'Tagihan berhasil diperbarui'
@@ -103,12 +112,35 @@ class TagihanAdminController extends Controller
     /**
      * DELETE /admin/tagihan/{id}
      */
-    public function destroy($id)
+    public function destroy(Request $request, $id)
     {
+        $this->ensureAdmin($request);
+
+        // 🔒 Cegah hapus jika ada pembayaran
+        $hasPayment = Pembayaran::where('tagihan_id', $id)->exists();
+
+        if ($hasPayment) {
+            return response()->json([
+                'message' => 'Tagihan tidak dapat dihapus karena memiliki pembayaran'
+            ], 409);
+        }
+
         Tagihan::findOrFail($id)->delete();
 
         return response()->json([
             'message' => 'Tagihan berhasil dihapus'
         ]);
+    }
+
+    /**
+     * ======================
+     * GUARD
+     * ======================
+     */
+    private function ensureAdmin(Request $request): void
+    {
+        if ($request->user()->role !== 'admin') {
+            abort(403, 'Forbidden');
+        }
     }
 }

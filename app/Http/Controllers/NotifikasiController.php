@@ -3,92 +3,52 @@
 namespace App\Http\Controllers;
 
 use App\Models\Notifikasi;
-use App\Models\User;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
 
 class NotifikasiController extends Controller
 {
-    // ============================
-    // KIRIM OTP
-    // ============================
-    public function sendOtp(Request $request)
+    /* =====================================================
+     * HELPER STATIC (DIPAKAI CONTROLLER LAIN)
+     * ===================================================== */
+
+    public static function createTagihanNotif(int $userId, string $pesan): void
     {
-        $request->validate(['phone' => 'required']);
-
-        $otp = rand(111111, 999999);
-
-        // simpan ke tabel notifikasi
         Notifikasi::create([
-            'user_id' => null, // belum punya user
-            'isi_pesan' => "Kode OTP Anda: $otp",
-            'tipe' => 'otp',
-        ]);
-
-        return response()->json([
-            'message' => 'OTP generated',
-            'otp' => $otp,
+            'user_id' => $userId,
+            'pesan'   => $pesan,
+            'tipe'    => 'tagihan',
+            'dibaca'  => false,
         ]);
     }
 
-
-    // ============================
-    // NOTIFIKASI TAGIHAN
-    // ============================
-    public function tagihan(Request $request)
+    public static function createPembayaranNotif(int $userId, string $pesan): void
     {
-        $request->validate([
-            'user_id' => 'required',
-            'pesan' => 'required',
-        ]);
-
         Notifikasi::create([
-            'user_id' => $request->user_id,
-            'isi_pesan' => $request->pesan,
-            'tipe' => 'tagihan',
+            'user_id' => $userId,
+            'pesan'   => $pesan,
+            'tipe'    => 'pembayaran',
+            'dibaca'  => false,
         ]);
-
-        return response()->json(['message' => 'Notifikasi tagihan dikirim']);
     }
 
-
-    // ============================
-    // NOTIFIKASI PEMBAYARAN
-    // ============================
-    public function pembayaran(Request $request)
-    {
-        $request->validate([
-            'user_id' => 'required',
-            'pesan' => 'required',
-        ]);
-
-        Notifikasi::create([
-            'user_id' => $request->user_id,
-            'isi_pesan' => $request->pesan,
-            'tipe' => 'pembayaran',
-        ]);
-
-        return response()->json(['message' => 'Notifikasi pembayaran dikirim']);
-    }
-
-
-    // ============================
-    // LIST NOTIFIKASI USER
-    // ============================
+    /* =====================================================
+     * LIST NOTIFIKASI USER
+     * ===================================================== */
     public function list(Request $request)
     {
         $user = $request->user();
 
-        $data = $user->notifikasis()
+        $data = Notifikasi::where('user_id', $user->id)
             ->orderByDesc('created_at')
-            ->limit(5)
+            ->limit(10)
             ->get()
             ->map(function ($n) {
                 return [
-                    'id' => $n->id,
-                    'pesan' => $n->pesan,
-                    'dibaca' => $n->dibaca,
-                    'tanggal' => $n->created_at->format('Y-m-d H:i'),
+                    'id'       => $n->id,
+                    'pesan'    => $n->pesan,
+                    'tipe'     => $n->tipe,
+                    'dibaca'   => $n->dibaca,
+                    'tanggal'  => $n->created_at->format('Y-m-d H:i'),
                 ];
             });
 
@@ -97,17 +57,19 @@ class NotifikasiController extends Controller
         ]);
     }
 
-
-
-    // ============================
-    // MARK AS READ
-    // ============================
-    public function markRead($id)
+    /* =====================================================
+     * MARK NOTIFIKASI SEBAGAI DIBACA
+     * ===================================================== */
+    public function markRead(Request $request, int $id)
     {
-        $notif = Notifikasi::findOrFail($id);
-        $notif->is_read = true;
-        $notif->save();
+        $notif = Notifikasi::where('id', $id)
+            ->where('user_id', $request->user()->id)
+            ->firstOrFail();
 
-        return response()->json(['message' => 'Notifikasi dibaca']);
+        $notif->update(['dibaca' => true]);
+
+        return response()->json([
+            'message' => 'Notifikasi dibaca'
+        ]);
     }
 }
