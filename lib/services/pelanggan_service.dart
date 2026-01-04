@@ -3,15 +3,28 @@ import 'package:http/http.dart' as http;
 import 'base_service.dart';
 
 class PelangganService {
-  static Future<List<dynamic>> getAll(String token) async {
+  /// =========================
+  /// LIST PELANGGAN
+  /// =========================
+  static Future<List<Map<String, dynamic>>> getAll(String token) async {
     final res = await http.get(
       Uri.parse("${BaseService.baseUrl}/admin/pelanggan"),
       headers: BaseService.headers(token),
     );
-    return BaseService.handle(res);
+
+    final data = BaseService.handle(res);
+
+    if (data is! List) {
+      throw Exception('Format data pelanggan tidak valid');
+    }
+
+    return List<Map<String, dynamic>>.from(data);
   }
 
-  static Future<void> create(
+  /// =========================
+  /// CREATE PELANGGAN
+  /// =========================
+  static Future<Map<String, dynamic>> create(
     String token,
     String nama,
     String phone,
@@ -27,6 +40,13 @@ class PelangganService {
       }),
     );
 
-    BaseService.handle(res);
+    final data = BaseService.handle(res);
+
+    if (data is! Map<String, dynamic> ||
+        data['pelanggan'] == null) {
+      throw Exception('Response create pelanggan tidak valid');
+    }
+
+    return data['pelanggan'];
   }
 }

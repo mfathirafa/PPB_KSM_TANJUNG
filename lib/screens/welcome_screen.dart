@@ -43,11 +43,12 @@ class WelcomeScreen extends StatelessWidget {
 
                 const SizedBox(height: 30),
 
+                // ================= CUSTOMER LOGIN =================
                 GestureDetector(
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => const WhatsAppLogin(role: "customer"),
+                      builder: (_) => const WhatsAppLogin(role: 'customer'),
                     ),
                   ),
                   child: Container(
@@ -76,6 +77,7 @@ class WelcomeScreen extends StatelessWidget {
 
                 const SizedBox(height: 15),
 
+                // ================= REGISTER =================
                 GestureDetector(
                   onTap: () => Navigator.push(
                     context,
@@ -107,11 +109,12 @@ class WelcomeScreen extends StatelessWidget {
 
                 const SizedBox(height: 15),
 
+                // ================= ADMIN LOGIN =================
                 GestureDetector(
                   onTap: () => Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (_) => WhatsAppLogin(role: "admin"),
+                      builder: (_) => const WhatsAppLogin(role: 'admin'),
                     ),
                   ),
                   child: Container(
@@ -123,12 +126,16 @@ class WelcomeScreen extends StatelessWidget {
                     ),
                     child: Row(
                       children: const [
-                        Icon(Icons.admin_panel_settings,
-                            color: Colors.blueGrey, size: 26),
+                        Icon(
+                          Icons.admin_panel_settings,
+                          color: Colors.blueGrey,
+                          size: 26,
+                        ),
                         SizedBox(width: 10),
                         Text(
                           'Masuk sebagai Admin',
-                          style: TextStyle(fontSize: 16, color: Colors.black87),
+                          style:
+                              TextStyle(fontSize: 16, color: Colors.black87),
                         ),
                       ],
                     ),
@@ -137,12 +144,13 @@ class WelcomeScreen extends StatelessWidget {
 
                 const SizedBox(height: 35),
 
+                // ================= BUTTON LANJUT =================
                 ElevatedButton(
                   onPressed: () {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (_) => WhatsAppLogin(role: "customer"),
+                        builder: (_) => const WhatsAppLogin(role: 'customer'),
                       ),
                     );
                   },
@@ -166,7 +174,8 @@ class WelcomeScreen extends StatelessWidget {
                         ),
                       ),
                       SizedBox(width: 8),
-                      Icon(Icons.arrow_forward, color: Colors.white, size: 20),
+                      Icon(Icons.arrow_forward,
+                          color: Colors.white, size: 20),
                     ],
                   ),
                 ),

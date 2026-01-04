@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../widgets/admin_sidebar.dart';
-import '../services/api_service.dart';
+import '../services/pelanggan_admin_service.dart';
 
 class ManageCustomerScreen extends StatefulWidget {
   const ManageCustomerScreen({super.key});
@@ -11,11 +12,10 @@ class ManageCustomerScreen extends StatefulWidget {
 }
 
 class _ManageCustomerScreenState extends State<ManageCustomerScreen> {
-  String filterStatus = "Aktif";
   String searchQuery = "";
   bool loading = true;
 
-  List<Map<String, dynamic>> allCustomers = [];
+  List<Map<String, dynamic>> customers = [];
 
   @override
   void initState() {
@@ -29,41 +29,31 @@ class _ManageCustomerScreenState extends State<ManageCustomerScreen> {
   }
 
   Future<void> _loadCustomers() async {
-    final token = await _getToken();
-    final res = await ApiService.getCustomers(token);
+    try {
+      final token = await _getToken();
+      final res = await PelangganAdminService.list(token);
 
-    setState(() {
-      allCustomers = res.map<Map<String, dynamic>>((c) {
-        return {
-          "id": c["id"],
-          "name": c["name"],
-          "phone": "+${c["phone"]}",
-          "isActive": c["is_active"],
-          "lastPay": c["last_payment"] ?? "-",
-        };
-      }).toList();
-      loading = false;
-    });
+      setState(() {
+        customers = List<Map<String, dynamic>>.from(res);
+        loading = false;
+      });
+    } catch (e) {
+      setState(() => loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
   }
 
   List<Map<String, dynamic>> getFilteredCustomers() {
-    var data = allCustomers;
+    if (searchQuery.isEmpty) return customers;
 
-    if (filterStatus == "Aktif") {
-      data = data.where((c) => c["isActive"]).toList();
-    } else if (filterStatus == "Tidak Aktif") {
-      data = data.where((c) => !c["isActive"]).toList();
-    }
-
-    if (searchQuery.isNotEmpty) {
-      data = data.where((c) {
-        final q = searchQuery.toLowerCase();
-        return c["name"].toLowerCase().contains(q) ||
-            c["phone"].toLowerCase().contains(q);
-      }).toList();
-    }
-
-    return data;
+    final q = searchQuery.toLowerCase();
+    return customers.where((c) {
+      final nama = (c['nama'] ?? '').toString().toLowerCase();
+      final phone = (c['phone'] ?? '').toString().toLowerCase();
+      return nama.contains(q) || phone.contains(q);
+    }).toList();
   }
 
   @override
@@ -90,55 +80,43 @@ class _ManageCustomerScreenState extends State<ManageCustomerScreen> {
       ),
       body: loading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          onChanged: (v) =>
-                              setState(() => searchQuery = v),
-                          decoration: const InputDecoration(
-                            hintText: "Cari nama atau WA",
-                            prefixIcon: Icon(Icons.search),
-                            border: OutlineInputBorder(),
-                          ),
+          : customers.isEmpty
+              ? const Center(
+                  child: Text(
+                    "Belum ada pelanggan",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                )
+              : Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: TextField(
+                        onChanged: (v) =>
+                            setState(() => searchQuery = v),
+                        decoration: const InputDecoration(
+                          hintText: "Cari nama atau WhatsApp",
+                          prefixIcon: Icon(Icons.search),
+                          border: OutlineInputBorder(),
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      DropdownButton<String>(
-                        value: filterStatus,
-                        items: ["Aktif", "Tidak Aktif", "Semua"]
-                            .map((v) => DropdownMenuItem(
-                                  value: v,
-                                  child: Text(v),
-                                ))
-                            .toList(),
-                        onChanged: (v) =>
-                            setState(() => filterStatus = v!),
+                    ),
+                    Expanded(
+                      child: ListView(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 16),
+                        children: getFilteredCustomers().map((c) {
+                          return _customerCard(
+                            context,
+                            c['id'],
+                            c['nama'] ?? '-',
+                            c['phone'] ?? '-',
+                          );
+                        }).toList(),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
-                Expanded(
-                  child: ListView(
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    children: getFilteredCustomers().map((c) {
-                      return _customerCard(
-                        context,
-                        c["id"],
-                        c["name"],
-                        c["phone"],
-                        c["isActive"],
-                        c["lastPay"],
-                      );
-                    }).toList(),
-                  ),
-                ),
-              ],
-            ),
     );
   }
 
@@ -147,8 +125,6 @@ class _ManageCustomerScreenState extends State<ManageCustomerScreen> {
     int id,
     String name,
     String phone,
-    bool isActive,
-    String lastPaymentDate,
   ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -166,32 +142,53 @@ class _ManageCustomerScreenState extends State<ManageCustomerScreen> {
                 Text(name,
                     style: const TextStyle(
                         fontWeight: FontWeight.bold, fontSize: 16)),
-                Text(phone, style: TextStyle(color: Colors.grey[600])),
-                const SizedBox(height: 8),
-                Text("Pembayaran Terakhir: $lastPaymentDate",
-                    style:
-                        TextStyle(fontSize: 11, color: Colors.grey[600])),
+                Text(phone,
+                    style: TextStyle(color: Colors.grey[600])),
               ],
             ),
           ),
           IconButton(
             icon: const Icon(Icons.delete, color: Colors.red),
-            onPressed: () => _deleteCustomer(id),
+            onPressed: () => _confirmDelete(id),
           )
         ],
       ),
     );
   }
 
-  Future<void> _deleteCustomer(int id) async {
-    final token = await _getToken();
-    await ApiService.deleteCustomer(token, id);
-    _loadCustomers();
+  void _confirmDelete(int id) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Hapus Pelanggan"),
+        content:
+            const Text("Apakah Anda yakin ingin menghapus pelanggan ini?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              final token = await _getToken();
+              await PelangganAdminService.delete(token, id);
+              _loadCustomers();
+            },
+            style:
+                ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child:
+                const Text("Hapus", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showAddCustomerPopup(BuildContext context) {
     final nameC = TextEditingController();
     final phoneC = TextEditingController();
+    final alamatC = TextEditingController();
 
     showDialog(
       context: context,
@@ -200,19 +197,34 @@ class _ManageCustomerScreenState extends State<ManageCustomerScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameC, decoration: const InputDecoration(labelText: "Nama")),
-            TextField(controller: phoneC, decoration: const InputDecoration(labelText: "No WA")),
+            TextField(
+                controller: nameC,
+                decoration:
+                    const InputDecoration(labelText: "Nama")),
+            TextField(
+                controller: phoneC,
+                decoration:
+                    const InputDecoration(labelText: "No WhatsApp")),
+            TextField(
+                controller: alamatC,
+                decoration:
+                    const InputDecoration(labelText: "Alamat")),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal"),
+          ),
           ElevatedButton(
             onPressed: () async {
               final token = await _getToken();
-              await ApiService.addCustomer(token, {
-                "name": nameC.text,
-                "phone": phoneC.text,
-              });
+              await PelangganAdminService.create(
+                token,
+                nameC.text,
+                phoneC.text,
+                alamatC.text,
+              );
               Navigator.pop(context);
               _loadCustomers();
             },

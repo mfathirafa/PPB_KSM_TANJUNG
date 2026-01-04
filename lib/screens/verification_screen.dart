@@ -4,15 +4,18 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 
+import '../services/base_service.dart';
 import 'dashboard_screen.dart';
 import 'dashboard_admin_screen.dart';
 
 class VerificationScreen extends StatefulWidget {
   final String phone;
+  final String role; // tetap ada, tapi role final ditentukan backend
 
   const VerificationScreen({
-    required this.phone,
     super.key,
+    required this.phone,
+    required this.role,
   });
 
   @override
@@ -20,76 +23,85 @@ class VerificationScreen extends StatefulWidget {
 }
 
 class _VerificationScreenState extends State<VerificationScreen> {
-  final controllers = List.generate(6, (_) => TextEditingController());
-  final focusNodes = List.generate(6, (_) => FocusNode());
+  final List<TextEditingController> controllers =
+      List.generate(6, (_) => TextEditingController());
+  final List<FocusNode> focusNodes =
+      List.generate(6, (_) => FocusNode());
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      focusNodes[0].requestFocus();
+      focusNodes.first.requestFocus();
     });
   }
 
   @override
   void dispose() {
-    for (var c in controllers) c.dispose();
-    for (var f in focusNodes) f.dispose();
+    for (final c in controllers) c.dispose();
+    for (final f in focusNodes) f.dispose();
     super.dispose();
   }
 
   // ============================
-  // VERIFY OTP KE BACKEND
+  // VERIFY OTP (FINAL FIX)
   // ============================
   Future<void> _verify() async {
-    final code = controllers.map((c) => c.text).join();
+    final otp = controllers.map((c) => c.text).join();
 
-    if (code.length != 6) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kode OTP tidak lengkap')),
-      );
+    if (otp.length != 6) {
+      _showSnack('Kode OTP tidak lengkap');
       return;
     }
 
     try {
       final res = await http.post(
-        Uri.parse('http://10.0.2.2:8000/api/verify-otp'),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('${BaseService.baseUrl}/verify-otp'),
+        headers: const {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
         body: jsonEncode({
           'phone': widget.phone,
-          'otp': code,
+          'otp': otp,
         }),
       );
 
-      if (res.statusCode != 200) {
-        throw Exception('OTP salah');
-      }
+      final data = BaseService.handle(res);
 
-      final data = jsonDecode(res.body);
-
-      // SIMPAN TOKEN & ROLE
+      // ============================
+      // 🔒 SIMPAN DATA WAJIB
+      // ============================
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('token', data['token']);
       await prefs.setString('role', data['role']);
+      await prefs.setString('user', jsonEncode(data['user']));
 
-      // REDIRECT SESUAI ROLE (DARI BACKEND)
+      if (!mounted) return;
+
+      // ============================
+      // 🔀 REDIRECT SESUAI ROLE
+      // ============================
       if (data['role'] == 'admin') {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const DashboardAdminScreen()),
+          MaterialPageRoute(
+            builder: (_) => const DashboardAdminScreen(),
+          ),
           (_) => false,
         );
       } else {
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const DashboardScreen()),
+          MaterialPageRoute(
+            builder: (_) => const DashboardScreen(),
+          ),
           (_) => false,
         );
       }
-    } catch (_) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kode verifikasi salah')),
-      );
+    } catch (e) {
+      if (!mounted) return;
+      _showSnack(e.toString().replaceFirst('Exception: ', ''));
     }
   }
 
@@ -97,17 +109,35 @@ class _VerificationScreenState extends State<VerificationScreen> {
   // RESEND OTP
   // ============================
   Future<void> _resendOtp() async {
-    await http.post(
-      Uri.parse('http://10.0.2.2:8000/api/send-otp'),
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({'phone': widget.phone}),
-    );
+    try {
+      await http.post(
+        Uri.parse('${BaseService.baseUrl}/send-otp'),
+        headers: const {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode({
+          'phone': widget.phone,
+        }),
+      );
 
+      if (!mounted) return;
+      _showSnack('Kode OTP dikirim ulang');
+    } catch (_) {
+      if (!mounted) return;
+      _showSnack('Gagal mengirim ulang OTP');
+    }
+  }
+
+  void _showSnack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Kode OTP dikirim ulang')),
+      SnackBar(content: Text(msg)),
     );
   }
 
+  // ============================
+  // UI (TIDAK DIUBAH)
+  // ============================
   @override
   Widget build(BuildContext context) {
     const whatsappGreen = Color(0xFF25D366);
@@ -126,23 +156,23 @@ class _VerificationScreenState extends State<VerificationScreen> {
         child: Column(
           children: [
             const SizedBox(height: 20),
-            const FaIcon(FontAwesomeIcons.whatsapp,
-                color: whatsappGreen, size: 60),
+            const FaIcon(
+              FontAwesomeIcons.whatsapp,
+              color: whatsappGreen,
+              size: 60,
+            ),
             const SizedBox(height: 20),
-
             const Text(
               'Verifikasi dengan WhatsApp',
               style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-
             Text(
               'Masukkan kode yang dikirim ke ${widget.phone}',
               textAlign: TextAlign.center,
               style: const TextStyle(color: Colors.grey),
             ),
             const SizedBox(height: 30),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(6, (i) {
@@ -161,7 +191,9 @@ class _VerificationScreenState extends State<VerificationScreen> {
                     keyboardType: TextInputType.number,
                     maxLength: 1,
                     style: const TextStyle(
-                        fontSize: 22, fontWeight: FontWeight.bold),
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
                     decoration: const InputDecoration(
                       counterText: '',
                       border: InputBorder.none,
@@ -177,9 +209,7 @@ class _VerificationScreenState extends State<VerificationScreen> {
                 );
               }),
             ),
-
             const SizedBox(height: 30),
-
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -188,17 +218,19 @@ class _VerificationScreenState extends State<VerificationScreen> {
                   backgroundColor: whatsappGreen,
                   padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
                 ),
                 child: const Text(
                   'Verifikasi Kode',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
-
             const SizedBox(height: 15),
-
             TextButton(
               onPressed: _resendOtp,
               child: const Text('Kirim ulang kode'),

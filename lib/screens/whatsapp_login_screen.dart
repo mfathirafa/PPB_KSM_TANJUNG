@@ -5,23 +5,39 @@ import 'package:http/http.dart' as http;
 import 'verification_screen.dart';
 
 class WhatsAppLogin extends StatefulWidget {
-  final String role;
+  final String role; // WAJIB
 
-  const WhatsAppLogin({super.key, this.role = "customer"});
+  const WhatsAppLogin({
+    super.key,
+    required this.role,
+  });
 
   @override
   State<WhatsAppLogin> createState() => _WhatsAppLoginState();
 }
 
 class _WhatsAppLoginState extends State<WhatsAppLogin> {
-  final _country = TextEditingController(text: '+62');
-  final _phone = TextEditingController();
+  final TextEditingController _country =
+      TextEditingController(text: '+62'); // UI TETAP
+  final TextEditingController _phone = TextEditingController();
 
-  static const String baseUrl =
-      "http://10.0.2.2:8000/api"; // ANDROID EMULATOR
+  static const String baseUrl = "http://10.0.2.2:8000/api";
 
   // ============================
-  // SEND OTP KE BACKEND LARAVEL
+  // NORMALIZE PHONE
+  // ============================
+  String normalizePhone(String input) {
+    input = input.replaceAll(RegExp(r'[^0-9]'), '');
+
+    if (input.startsWith('0')) return '+62${input.substring(1)}';
+    if (input.startsWith('62')) return '+$input';
+    if (input.startsWith('8')) return '+62$input';
+
+    throw Exception('Nomor tidak valid');
+  }
+
+  // ============================
+  // SEND OTP
   // ============================
   Future<void> _sendOtp() async {
     if (_phone.text.trim().isEmpty) {
@@ -31,7 +47,16 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
       return;
     }
 
-    final phone = "${_country.text}${_phone.text}".replaceAll(' ', '');
+    late String phone;
+
+    try {
+      phone = normalizePhone(_phone.text);
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Format nomor tidak valid')),
+      );
+      return;
+    }
 
     try {
       final response = await http.post(
@@ -40,37 +65,20 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
         },
-        body: jsonEncode({'phone': phone}),
+        body: jsonEncode({
+          'phone': phone,
+          'role': widget.role, // 🔒 ROLE DIKUNCI DI SINI
+        }),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final otp = data['otp'];
-
-        // ⚠️ OTP DITAMPILKAN HANYA UNTUK DEVELOPMENT
-        showDialog(
-          context: context,
-          builder: (_) => AlertDialog(
-            title: const Text('Kode OTP (DEV MODE)'),
-            content: Text('OTP dari server: $otp'),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => VerificationScreen(
-                        phone: phone,
-                        otp: otp.toString(),
-                        role: widget.role,
-                      ),
-                    ),
-                  );
-                },
-                child: const Text('LANJUT'),
-              ),
-            ],
+      if (response.statusCode == 200 && mounted) {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => VerificationScreen(
+              phone: phone,
+              role: widget.role, // 🔒 TERUSKAN ROLE
+            ),
           ),
         );
       } else {
@@ -79,15 +87,15 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
           SnackBar(content: Text(error['message'] ?? 'Gagal mengirim OTP')),
         );
       }
-    } catch (e) {
+    } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error koneksi: $e')),
+        const SnackBar(content: Text('Error koneksi ke server')),
       );
     }
   }
 
   // =========================
-  // UI LOGIN WHATSAPP
+  // UI (TIDAK DIUBAH)
   // =========================
   @override
   Widget build(BuildContext context) {
@@ -100,7 +108,6 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
           children: [
             SizedBox(height: MediaQuery.of(context).padding.top + 10),
 
-            // Back Button
             Align(
               alignment: Alignment.centerLeft,
               child: Container(
@@ -116,9 +123,7 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
             ),
 
             const SizedBox(height: 30),
-
             Image.asset('assets/wa.png', height: 55),
-
             const SizedBox(height: 12),
 
             const Text(
@@ -127,7 +132,6 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
             ),
 
             const SizedBox(height: 10),
-
             const Text(
               'Masuk menggunakan nomor WhatsApp Anda',
               style: TextStyle(fontSize: 16, color: Colors.black87),
@@ -136,7 +140,6 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
 
             const SizedBox(height: 25),
 
-            // Phone Input
             Container(
               decoration: BoxDecoration(
                 color: Colors.grey.shade100,
@@ -149,7 +152,7 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
                     width: 50,
                     child: TextField(
                       controller: _country,
-                      keyboardType: TextInputType.phone,
+                      enabled: false,
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                         contentPadding: EdgeInsets.zero,
@@ -183,7 +186,6 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
 
             const SizedBox(height: 25),
 
-            // Send OTP Button
             SizedBox(
               width: double.infinity,
               height: 50,
@@ -224,8 +226,7 @@ class _WhatsAppLoginState extends State<WhatsAppLogin> {
                   SizedBox(width: 10),
                   Expanded(
                     child: Text(
-                      'Kode OTP akan dikirim melalui WhatsApp. '
-                      'Pada mode pengembangan, OTP ditampilkan langsung.',
+                      'Kode OTP akan dikirim melalui WhatsApp.',
                       style: TextStyle(fontSize: 14),
                     ),
                   ),

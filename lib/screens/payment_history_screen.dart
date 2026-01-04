@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../widgets/admin_sidebar.dart';
-import '../services/api_service.dart';
+import '../services/payment_admin_service.dart';
 
 class PaymentHistoryScreen extends StatefulWidget {
   const PaymentHistoryScreen({super.key});
@@ -14,6 +15,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
   String filterStatus = "Semua";
   List<Map<String, dynamic>> allBills = [];
   bool loading = true;
+  String? error;
 
   @override
   void initState() {
@@ -27,26 +29,48 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
   }
 
   Future<void> _loadData() async {
-    final token = await _getToken();
-    final res = await ApiService.getAdminPembayaran(token);
+    try {
+      final token = await _getToken();
 
-    setState(() {
-      allBills = res.map<Map<String, dynamic>>((b) {
-        final isPaid = b['status'] == 'lunas' || b['status'] == 'paid';
+      if (token.isEmpty) {
+        throw Exception('Token tidak ditemukan, silakan login ulang');
+      }
 
-        return {
-          "id": b['id'].toString(),
-          "name": b['nama'],
-          "phone": b['phone'],
-          "amount": b['jumlah'].toString(),
-          "due": b['jatuh_tempo'],
-          "status": isPaid ? "Sudah Dibayar" : "Belum Dibayar",
-          "color": isPaid ? Colors.green : Colors.orange,
-        };
-      }).toList();
+      final res = await PaymentAdminService.list(token);
 
-      loading = false;
-    });
+      if (!mounted) return;
+
+      final list = List<Map<String, dynamic>>.from(res ?? []);
+
+      setState(() {
+        allBills = list.map<Map<String, dynamic>>((p) {
+          final rawStatus = p['status'];
+
+          final bool isPaid =
+              rawStatus == 'confirmed' || rawStatus == 'lunas';
+
+          final user = Map<String, dynamic>.from(p['user'] ?? {});
+
+          return {
+            "id": p['id']?.toString() ?? '-',
+            "name": user['name'] ?? '-',
+            "phone": user['phone'] ?? '-',
+            "amount": (p['jumlah_bayar'] ?? 0).toString(),
+            "date": p['tanggal'] ?? '-',
+            "status": isPaid ? "Sudah Dibayar" : "Menunggu Verifikasi",
+            "color": isPaid ? Colors.green : Colors.orange,
+          };
+        }).toList();
+
+        loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        error = e.toString();
+        loading = false;
+      });
+    }
   }
 
   List<Map<String, dynamic>> get filteredBills {
@@ -85,31 +109,39 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
       ),
       body: loading
           ? const Center(child: CircularProgressIndicator())
-          : ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                for (var bill in filteredBills)
-                  _paymentHistoryCard(
-                    bill["id"],
-                    bill["name"],
-                    bill["phone"],
-                    bill["amount"],
-                    bill["due"],
-                    bill["status"],
-                    bill["color"],
+          : error != null
+              ? Center(
+                  child: Text(
+                    error!,
+                    style: const TextStyle(color: Colors.red),
+                    textAlign: TextAlign.center,
                   ),
-                const SizedBox(height: 80),
-              ],
-            ),
+                )
+              : ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    for (var bill in filteredBills)
+                      _paymentHistoryCard(
+                        bill["id"],
+                        bill["name"],
+                        bill["phone"],
+                        bill["amount"],
+                        bill["date"],
+                        bill["status"],
+                        bill["color"],
+                      ),
+                    const SizedBox(height: 80),
+                  ],
+                ),
     );
   }
 
   Widget _paymentHistoryCard(
-    String tagId,
+    String paymentId,
     String name,
     String phone,
     String amount,
-    String dueDate,
+    String date,
     String status,
     Color statusColor,
   ) {
@@ -127,8 +159,10 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("#TAG-$tagId",
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text(
+                "Pembayaran #$paymentId",
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -154,11 +188,17 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text("Jatuh Tempo : $dueDate",
-                  style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-              Text("Rp $amount",
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 18)),
+              Text(
+                "Tanggal : $date",
+                style: TextStyle(color: Colors.grey[600], fontSize: 12),
+              ),
+              Text(
+                "Rp $amount",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                ),
+              ),
             ],
           )
         ],
@@ -167,7 +207,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
   }
 }
 
-/* ================= FILTER SIDEBAR (TIDAK DIUBAH) ================= */
+/* ================= FILTER SIDEBAR ================= */
 
 class _FilterSidebar extends StatefulWidget {
   final String selectedStatus;
@@ -203,9 +243,13 @@ class _FilterSidebarState extends State<_FilterSidebar> {
               items: const [
                 DropdownMenuItem(value: "Semua", child: Text("Semua")),
                 DropdownMenuItem(
-                    value: "Sudah Dibayar", child: Text("Sudah Dibayar")),
+                  value: "Sudah Dibayar",
+                  child: Text("Sudah Dibayar"),
+                ),
                 DropdownMenuItem(
-                    value: "Belum Dibayar", child: Text("Belum Dibayar")),
+                  value: "Menunggu Verifikasi",
+                  child: Text("Menunggu Verifikasi"),
+                ),
               ],
               onChanged: (v) => setState(() => selectedStatus = v!),
             ),

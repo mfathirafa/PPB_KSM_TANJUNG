@@ -1,24 +1,27 @@
 import 'package:flutter/material.dart';
 import 'dart:async';
-import '../widgets/dialogs.dart';
 
 class QrisPaymentPage extends StatefulWidget {
   final Map<String, dynamic> bill;
 
-  const QrisPaymentPage({required this.bill});
+  const QrisPaymentPage({
+    super.key,
+    required this.bill,
+  });
 
   @override
-  _QrisPaymentPageState createState() => _QrisPaymentPageState();
+  State<QrisPaymentPage> createState() => _QrisPaymentPageState();
 }
 
 class _QrisPaymentPageState extends State<QrisPaymentPage> {
+  static const int _timeoutSeconds = 10 * 60; // 10 menit
   late int _remainingSeconds;
   Timer? _timer;
 
   @override
   void initState() {
     super.initState();
-    _remainingSeconds = 10 * 60;
+    _remainingSeconds = _timeoutSeconds;
     _startTimer();
   }
 
@@ -28,15 +31,36 @@ class _QrisPaymentPageState extends State<QrisPaymentPage> {
 
       if (_remainingSeconds <= 0) {
         timer.cancel();
-        setState(() {
-          _remainingSeconds = 0;
-        });
+        _onExpired();
       } else {
-        setState(() {
-          _remainingSeconds--;
-        });
+        setState(() => _remainingSeconds--);
       }
     });
+  }
+
+  void _onExpired() {
+    setState(() => _remainingSeconds = 0);
+
+    // 🔔 NOTIFIKASI EXPIRED (LOGIC ONLY)
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => AlertDialog(
+        title: const Text('Waktu Habis'),
+        content: const Text(
+          'Waktu pembayaran QRIS telah berakhir.\nSilakan ulangi pembayaran.',
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pop(context); // kembali ke pembayaran
+            },
+            child: const Text('Kembali'),
+          )
+        ],
+      ),
+    );
   }
 
   @override
@@ -75,7 +99,7 @@ class _QrisPaymentPageState extends State<QrisPaymentPage> {
             ),
             const SizedBox(height: 12),
 
-            // 🔵 Timer Bulat
+            // ⏱ TIMER
             Container(
               width: 110,
               height: 110,
@@ -97,6 +121,8 @@ class _QrisPaymentPageState extends State<QrisPaymentPage> {
             ),
 
             const SizedBox(height: 20),
+
+            // 💰 JUMLAH TAGIHAN
             Card(
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -114,7 +140,7 @@ class _QrisPaymentPageState extends State<QrisPaymentPage> {
                       style: TextStyle(fontSize: 16),
                     ),
                     Text(
-                      'Rp ${b['amount']}',
+                      'Rp ${b['jumlah']}',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -127,7 +153,7 @@ class _QrisPaymentPageState extends State<QrisPaymentPage> {
 
             const SizedBox(height: 24),
 
-            // 🟩 QR Section
+            // 🟩 QR SECTION
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -147,7 +173,10 @@ class _QrisPaymentPageState extends State<QrisPaymentPage> {
                   const SizedBox(height: 4),
                   Text(
                     'Nomor Tagihan: #${b['id']}',
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                    ),
                   ),
                 ],
               ),
@@ -162,7 +191,9 @@ class _QrisPaymentPageState extends State<QrisPaymentPage> {
                 label: const Text('Unduh QRIS'),
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('QRIS diunduh (dummy)')),
+                    const SnackBar(
+                      content: Text('QRIS diunduh (dummy)'),
+                    ),
                   );
                 },
                 style: ElevatedButton.styleFrom(
@@ -174,7 +205,9 @@ class _QrisPaymentPageState extends State<QrisPaymentPage> {
                 ),
               ),
             ),
+
             const SizedBox(height: 8),
+
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -182,11 +215,14 @@ class _QrisPaymentPageState extends State<QrisPaymentPage> {
                 label: const Text('Bagikan QRIS'),
                 onPressed: () {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Bagikan QRIS (dummy)')),
+                    const SnackBar(
+                      content: Text('Bagikan QRIS (dummy)'),
+                    ),
                   );
                 },
               ),
             ),
+
             const SizedBox(height: 12),
           ],
         ),

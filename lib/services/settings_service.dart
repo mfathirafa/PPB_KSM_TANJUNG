@@ -3,16 +3,27 @@ import 'package:http/http.dart' as http;
 import 'base_service.dart';
 
 class SettingsService {
-  /// Ambil setting admin
+  /// =========================
+  /// GET SETTINGS (ADMIN)
+  /// =========================
   static Future<Map<String, dynamic>> getSettings(String token) async {
     final res = await http.get(
       Uri.parse("${BaseService.baseUrl}/admin/settings"),
       headers: BaseService.headers(token),
     );
-    return BaseService.handle(res);
+
+    final data = BaseService.handle(res);
+
+    if (data == null || data is! Map<String, dynamic>) {
+      throw Exception("Format settings tidak valid");
+    }
+
+    return data;
   }
 
-  /// Update setting admin
+  /// =========================
+  /// UPDATE SETTINGS
+  /// =========================
   static Future<void> updateSettings(
     String token, {
     required bool waNotif,
@@ -20,21 +31,25 @@ class SettingsService {
     required bool enforceHttps,
     required bool midtransEnabled,
   }) async {
+    final payload = {
+      "wa_notification": waNotif,
+      "notification_timeout": timeout,
+      "enforce_https": enforceHttps,
+      "midtrans_enabled": midtransEnabled,
+    };
+
     final res = await http.put(
       Uri.parse("${BaseService.baseUrl}/admin/settings"),
       headers: BaseService.headers(token),
-      body: jsonEncode({
-        "wa_notification": waNotif,
-        "notification_timeout": timeout,
-        "enforce_https": enforceHttps,
-        "midtrans_enabled": midtransEnabled,
-      }),
+      body: jsonEncode(payload),
     );
 
     BaseService.handle(res);
   }
 
-  /// Regenerate JWT secret
+  /// =========================
+  /// REGENERATE JWT
+  /// =========================
   static Future<void> regenerateJwt(String token) async {
     final res = await http.post(
       Uri.parse("${BaseService.baseUrl}/admin/settings/regenerate-jwt"),

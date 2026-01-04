@@ -14,8 +14,9 @@ class PembayaranBerhasilPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String tanggal =
-        bill['created_at']?.toString().substring(0, 16) ?? '-';
+    final String tanggal = bill['tanggal']?.toString() ?? '-';
+    final String tagihanId = bill['id']?.toString() ?? '-';
+    final String jumlah = bill['jumlah']?.toString() ?? '0';
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -31,8 +32,11 @@ class PembayaranBerhasilPage extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             Text(
-              'Tagihan #${bill['id']} - Rp ${bill['jumlah']}',
-              style: const TextStyle(fontSize: 15, color: Colors.black87),
+              'Tagihan #$tagihanId - Rp $jumlah',
+              style: const TextStyle(
+                fontSize: 15,
+                color: Colors.black87,
+              ),
             ),
             const SizedBox(height: 32),
 
@@ -44,7 +48,7 @@ class PembayaranBerhasilPage extends StatelessWidget {
             const SizedBox(height: 20),
 
             const Text(
-              'Terima Kasih! Pembayaran Anda telah diterima.',
+              'Pembayaran berhasil dikirim',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 16,
@@ -52,17 +56,20 @@ class PembayaranBerhasilPage extends StatelessWidget {
                 color: Colors.black87,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
 
             const Text(
-              'Detail pembayaran telah tercatat di sistem.',
+              'Menunggu verifikasi dari admin',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 13, color: Colors.grey),
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.grey,
+              ),
             ),
 
             const SizedBox(height: 30),
 
-            // ================= DETAIL PEMBAYARAN =================
+            // ================= DETAIL =================
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(14),
@@ -79,32 +86,36 @@ class PembayaranBerhasilPage extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
 
-                  InfoRow(title: 'ID Tagihan', value: bill['id'].toString()),
-                  InfoRow(title: 'Tanggal & Waktu', value: tanggal),
+                  InfoRow(title: 'ID Tagihan', value: tagihanId),
+                  InfoRow(title: 'Tanggal', value: tanggal),
                   InfoRow(title: 'Metode Pembayaran', value: method),
-                  InfoRow(
-                    title: 'Jumlah',
-                    value: 'Rp ${bill['jumlah']}',
-                  ),
+                  InfoRow(title: 'Jumlah', value: 'Rp $jumlah'),
+
+                  const SizedBox(height: 6),
 
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Status',
-                          style: TextStyle(color: Colors.black54)),
+                      const Text(
+                        'Status',
+                        style: TextStyle(color: Colors.black54),
+                      ),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
-                          color: Colors.green.shade50,
+                          color: Colors.orange.shade50,
                           borderRadius: BorderRadius.circular(6),
-                          border:
-                              Border.all(color: Colors.green.shade200),
+                          border: Border.all(
+                            color: Colors.orange.shade200,
+                          ),
                         ),
                         child: const Text(
-                          'Terkonfirmasi',
+                          'Menunggu Verifikasi',
                           style: TextStyle(
-                            color: Colors.green,
+                            color: Colors.orange,
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
@@ -118,7 +129,7 @@ class PembayaranBerhasilPage extends StatelessWidget {
 
             const SizedBox(height: 30),
 
-            // ================= TOMBOL AKSI =================
+            // ================= ACTION =================
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -126,14 +137,14 @@ class PembayaranBerhasilPage extends StatelessWidget {
                   Navigator.pushAndRemoveUntil(
                     context,
                     MaterialPageRoute(
-                        builder: (_) => const DashboardScreen()),
-                    (route) => false,
+                      builder: (_) => const DashboardScreen(),
+                    ),
+                    (_) => false,
                   );
                 },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.green,
-                  padding:
-                      const EdgeInsets.symmetric(vertical: 14),
+                  padding: const EdgeInsets.symmetric(vertical: 14),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -141,8 +152,9 @@ class PembayaranBerhasilPage extends StatelessWidget {
                 child: const Text(
                   'Kembali ke Dashboard',
                   style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white),
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),

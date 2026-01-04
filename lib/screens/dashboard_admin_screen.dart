@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../services/api_service.dart';
-import '../widgets/dialogs.dart';
+import '../services/admin_dashboard_service.dart';
 import '../widgets/admin_sidebar.dart';
+import '../widgets/dialogs.dart';
 
 class DashboardAdminScreen extends StatefulWidget {
   const DashboardAdminScreen({super.key});
@@ -13,10 +13,11 @@ class DashboardAdminScreen extends StatefulWidget {
 }
 
 class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
-  Map<String, dynamic>? admin;
-  Map<String, dynamic>? dashboard;
-  bool isLoading = true;
+  bool loading = true;
   String? error;
+
+  Map<String, dynamic> stats = {};
+  List<Map<String, dynamic>> tagihanTerbaru = [];
 
   @override
   void initState() {
@@ -27,31 +28,34 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
   Future<void> _loadDashboard() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('token');
+      final token = prefs.getString('token') ?? '';
 
-      if (token == null) {
-        throw Exception("Token tidak ditemukan, silakan login ulang");
+      if (token.isEmpty) {
+        throw Exception('Token tidak ditemukan, silakan login ulang');
       }
 
-      final me = await ApiService.getMe(token);
-      final dash = await ApiService.getAdminDashboard(token);
+      final data = await AdminDashboardService.get(token);
+
+      if (!mounted) return;
 
       setState(() {
-        admin = me;
-        dashboard = dash;
-        isLoading = false;
+        stats = Map<String, dynamic>.from(data['stats'] ?? {});
+        tagihanTerbaru =
+            List<Map<String, dynamic>>.from(data['tagihan_terbaru'] ?? []);
+        loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         error = e.toString();
-        isLoading = false;
+        loading = false;
       });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (isLoading) {
+    if (loading) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );
@@ -60,16 +64,10 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     if (error != null) {
       return Scaffold(
         body: Center(
-          child: Text(
-            error!,
-            style: const TextStyle(color: Colors.red),
-          ),
+          child: Text(error!, style: const TextStyle(color: Colors.red)),
         ),
       );
     }
-
-    final stats = dashboard!['stats'];
-    final List tagihan = dashboard!['tagihan_terbaru'];
 
     return Scaffold(
       drawer: const AdminSidebar(),
@@ -78,12 +76,12 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
           children: [
             _header(context),
             Padding(
-              padding: const EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 children: [
-                  _stats(stats),
+                  _statsGrid(),
                   const SizedBox(height: 16),
-                  _tagihanTable(tagihan),
+                  _tagihanTerbaruSection(),
                 ],
               ),
             ),
@@ -93,254 +91,125 @@ class _DashboardAdminScreenState extends State<DashboardAdminScreen> {
     );
   }
 
-  // =================== HEADER =====================
+  // ================= HEADER =================
   Widget _header(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(color: Color(0xFF4CAF50)),
+      color: const Color(0xFF4CAF50),
       padding: EdgeInsets.fromLTRB(
         16,
         MediaQuery.of(context).padding.top + 10,
         16,
         16,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Builder(
-                builder: (context) => IconButton(
-                  icon: const Icon(Icons.menu, color: Colors.white, size: 28),
-                  onPressed: () => Scaffold.of(context).openDrawer(),
-                ),
-              ),
-              const Text(
-                "KSM Tanjung",
-                style: TextStyle(
-                  fontSize: 20,
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  showDialog(
-                    context: context,
-                    builder: (_) => LogoutConfirmationDialog(),
-                  );
-                },
-                child: Row(
-                  children: const [
-                    Text("Keluar",
-                        style: TextStyle(fontSize: 16, color: Colors.white)),
-                    SizedBox(width: 4),
-                    Icon(Icons.logout, color: Colors.white, size: 20),
-                  ],
-                ),
-              ),
-            ],
+          Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu, color: Colors.white),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            "Selamat datang, ${admin!['name'] ?? 'Admin'}!",
-            style: const TextStyle(fontSize: 16, color: Colors.white),
+          const Text(
+            "Dashboard Admin",
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          const SizedBox(height: 4),
-          Text(
-            dashboard!['tanggal'],
-            style: const TextStyle(fontSize: 14, color: Colors.white70),
+          GestureDetector(
+            onTap: () {
+              showDialog(
+                context: context,
+                builder: (_) => LogoutConfirmationDialog(),
+              );
+            },
+            child: const Icon(Icons.logout, color: Colors.white),
           ),
         ],
       ),
     );
   }
 
-  // =================== STATISTIK =====================
-  Widget _stats(Map<String, dynamic> s) {
-    final items = [
-      {
-        "icon": Icons.person,
-        "title": "Total Pelanggan",
-        "value": s['total_pelanggan'].toString(),
-        "subtitle": "Aktif",
-        "color": Colors.green
-      },
-      {
-        "icon": Icons.receipt_long,
-        "title": "Tagihan Bulan Ini",
-        "value": "Rp ${s['total_tagihan_bulan_ini']}",
-        "subtitle": "${s['total_tagihan']} Tagihan",
-        "color": Colors.orange
-      },
-      {
-        "icon": Icons.payment,
-        "title": "Total Pembayaran",
-        "value": s['total_pembayaran'].toString(),
-        "subtitle": "Transaksi",
-        "color": Colors.green
-      },
-      {
-        "icon": Icons.history,
-        "title": "Menunggu Verifikasi",
-        "value": s['pending_pembayaran'].toString(),
-        "subtitle": "Pending",
-        "color": Colors.red
-      },
-    ];
-
-    return GridView.builder(
+  // ================= STAT GRID =================
+  Widget _statsGrid() {
+    return GridView.count(
       shrinkWrap: true,
+      crossAxisCount: 2,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
       physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        crossAxisSpacing: 16,
-        mainAxisSpacing: 16,
-        childAspectRatio: 1.0,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) {
-        final item = items[index];
-        return _statCard(
-          item["icon"] as IconData,
-          item["title"] as String,
-          item["value"] as String,
-          item["subtitle"] as String,
-          item["color"] as Color,
-        );
-      },
+      children: [
+        _statCard("Total Pelanggan", stats['total_pelanggan'] ?? 0),
+        _statCard("Total Tagihan", stats['total_tagihan'] ?? 0),
+        _statCard("Total Pembayaran", stats['total_pembayaran'] ?? 0),
+        _statCard("Menunggu Verifikasi", stats['pending_pembayaran'] ?? 0),
+      ],
     );
   }
 
-  Widget _statCard(
-    IconData icon,
-    String title,
-    String value,
-    String subtitle,
-    Color subtitleColor,
-  ) {
+  Widget _statCard(String label, dynamic value) {
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 5,
-          ),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 4),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 24, color: Colors.grey[700]),
-          const SizedBox(height: 8),
-          Text(title,
-              style: const TextStyle(fontSize: 12, color: Colors.grey)),
-          const SizedBox(height: 4),
-          Text(value,
-              style:
-                  const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-          const Spacer(),
-          Text(subtitle,
-              style: TextStyle(fontSize: 12, color: subtitleColor)),
+          Text(label, style: const TextStyle(fontSize: 12)),
+          const SizedBox(height: 6),
+          Text(
+            value.toString(),
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );
   }
 
-  // =================== TAGIHAN =====================
-  Widget _tagihanTable(List tagihan) {
-    if (tagihan.isEmpty) {
-      return const Text("Belum ada tagihan");
+  // ================= TAGIHAN TERBARU =================
+  Widget _tagihanTerbaruSection() {
+    if (tagihanTerbaru.isEmpty) {
+      return const Text(
+        "Belum ada tagihan terbaru",
+        style: TextStyle(color: Colors.grey),
+      );
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          "Data Tagihan",
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          "Tagihan Terbaru",
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
         ),
-        const SizedBox(height: 10),
-        ...tagihan.take(3).map((t) {
-          final status = t['status'];
-          Color bg = status == 'lunas'
-              ? const Color(0xFFA5D6A7)
-              : status == 'belum_dibayar'
-                  ? const Color(0xFFFFCC80)
-                  : const Color(0xFFEF9A9A);
-
-          return _tagihanRow(
-            t['nama'],
-            t['tanggal'],
-            "Rp ${t['jumlah']}",
-            status,
-            bg,
+        const SizedBox(height: 8),
+        ...tagihanTerbaru.map((t) {
+          return ListTile(
+            title: Text(t['nama'] ?? '-'),
+            subtitle: Text(t['tanggal'] ?? '-'),
+            trailing: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text("Rp ${t['jumlah'] ?? 0}"),
+                Text(
+                  t['status'] ?? '-',
+                  style: const TextStyle(fontSize: 12),
+                ),
+              ],
+            ),
           );
         }).toList(),
       ],
-    );
-  }
-
-  Widget _tagihanRow(
-    String nama,
-    String bulan,
-    String jumlah,
-    String status,
-    Color tagBgColor,
-  ) {
-    Color tagTextColor = tagBgColor == const Color(0xFFA5D6A7)
-        ? Colors.green.shade800
-        : tagBgColor == const Color(0xFFFFCC80)
-            ? Colors.orange.shade800
-            : Colors.red.shade800;
-
-    return Container(
-      padding: const EdgeInsets.all(12),
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-              color: Colors.grey.withOpacity(0.1),
-              spreadRadius: 1,
-              blurRadius: 3)
-        ],
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(nama,
-                style:
-                    const TextStyle(fontWeight: FontWeight.bold)),
-            Text(bulan,
-                style:
-                    const TextStyle(fontSize: 12, color: Colors.grey)),
-          ]),
-          Text(jumlah),
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            decoration: BoxDecoration(
-              color: tagBgColor,
-              borderRadius: BorderRadius.circular(6),
-            ),
-            child: Text(
-              status,
-              style: TextStyle(
-                fontSize: 12,
-                color: tagTextColor,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

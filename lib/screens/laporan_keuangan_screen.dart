@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../widgets/admin_sidebar.dart';
-import '../services/api_service.dart';
+import '../services/laporan_service.dart';
 
 class LaporanKeuanganScreen extends StatefulWidget {
   const LaporanKeuanganScreen({super.key});
@@ -26,25 +27,41 @@ class _LaporanKeuanganScreenState extends State<LaporanKeuanganScreen> {
     _loadFinanceData();
   }
 
-  Future<String> _getToken() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token') ?? '';
-  }
-
   Future<void> _loadFinanceData() async {
-    final token = await _getToken();
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final token = prefs.getString('token') ?? '';
 
-    final summary = await ApiService.getFinanceSummary(token);
-    final chart = await ApiService.getFinanceChart(token);
-    final tx = await ApiService.getRecentTransactions(token);
+      if (token.isEmpty) {
+        throw Exception('Token tidak ditemukan, silakan login ulang');
+      }
 
-    setState(() {
-      totalIncome = summary['total_income'];
-      totalBills = summary['total_bills'];
-      chartData = List<Map<String, dynamic>>.from(chart);
-      transactions = List<Map<String, dynamic>>.from(tx);
-      loading = false;
-    });
+      final data = await LaporanService.getDashboard(token);
+
+      if (!mounted) return;
+
+      setState(() {
+        totalIncome =
+            (data['summary']?['total_pendapatan'] ?? 0) as int;
+        totalBills = (data['summary']?['total_tagihan'] ?? 0) as int;
+
+        chartData = List<Map<String, dynamic>>.from(
+          data['chart'] ?? [],
+        );
+
+        transactions = List<Map<String, dynamic>>.from(
+          data['transactions'] ?? [],
+        );
+
+        loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.toString())),
+      );
+    }
   }
 
   @override
@@ -66,36 +83,59 @@ class _LaporanKeuanganScreenState extends State<LaporanKeuanganScreen> {
       backgroundColor: const Color(0xFFF8F9FA),
       body: loading
           ? const Center(child: CircularProgressIndicator())
-          : SingleChildScrollView(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+          : chartData.isEmpty && transactions.isEmpty
+              ? const Center(
+                  child: Text(
+                    'Belum ada data laporan',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _summaryCard('Total Pendapatan', 'Rp $totalIncome'),
-                      _summaryCard('Total Tagihan dibuat', '$totalBills Tagihan'),
+                      Row(
+                        children: [
+                          _summaryCard(
+                            'Total Pendapatan',
+                            'Rp $totalIncome',
+                          ),
+                          _summaryCard(
+                            'Total Tagihan Dibuat',
+                            '$totalBills Tagihan',
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 25),
+
+                      const Text(
+                        'Financial Overview',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _overviewChart(),
+                      const SizedBox(height: 25),
+
+                      const Text(
+                        'Transaksi Terbaru',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      _transactionTable(),
                     ],
                   ),
-                  const SizedBox(height: 25),
-
-                  const Text('Financial Overview',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  _overviewChart(),
-                  const SizedBox(height: 25),
-
-                  const Text('Transaksi Terbaru',
-                      style:
-                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 10),
-                  _transactionTable(),
-                ],
-              ),
-            ),
+                ),
     );
   }
+
+  // ================= UI (TIDAK DIUBAH) =================
 
   Widget _summaryCard(String title, String value) {
     return Expanded(
@@ -109,13 +149,17 @@ class _LaporanKeuanganScreenState extends State<LaporanKeuanganScreen> {
         ),
         child: Column(
           children: [
-            Text(title,
-                style:
-                    const TextStyle(fontSize: 13, color: Colors.black54)),
+            Text(
+              title,
+              style:
+                  const TextStyle(fontSize: 13, color: Colors.black54),
+            ),
             const SizedBox(height: 6),
-            Text(value,
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              value,
+              style:
+                  const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
           ],
         ),
       ),
@@ -123,6 +167,14 @@ class _LaporanKeuanganScreenState extends State<LaporanKeuanganScreen> {
   }
 
   Widget _overviewChart() {
+    if (chartData.isEmpty) {
+      return const Text('Tidak ada data grafik');
+    }
+
+    final maxValue = chartData
+        .map((e) => (e['total'] ?? 0) as int)
+        .fold<int>(0, (a, b) => a > b ? a : b);
+
     return Container(
       height: 200,
       padding: const EdgeInsets.all(8),
@@ -134,26 +186,28 @@ class _LaporanKeuanganScreenState extends State<LaporanKeuanganScreen> {
       child: BarChart(
         BarChartData(
           alignment: BarChartAlignment.spaceAround,
-          maxY: 30,
-          barGroups: List.generate(chartData.length, (i) {
-            final d = chartData[i];
+          maxY: maxValue == 0 ? 10 : maxValue.toDouble() + 5,
+          barGroups: chartData.asMap().entries.map((e) {
             return BarChartGroupData(
-              x: i,
+              x: e.key,
               barRods: [
-                BarChartRodData(toY: d['paid'].toDouble(), color: Colors.green),
                 BarChartRodData(
-                    toY: d['unpaid'].toDouble(), color: Colors.blue),
-                BarChartRodData(
-                    toY: d['pending'].toDouble(), color: Colors.orange),
+                  toY: ((e.value['total'] ?? 0) as int).toDouble(),
+                  color: Colors.green,
+                ),
               ],
             );
-          }),
+          }).toList(),
         ),
       ),
     );
   }
 
   Widget _transactionTable() {
+    if (transactions.isEmpty) {
+      return const Text('Belum ada transaksi');
+    }
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -166,25 +220,36 @@ class _LaporanKeuanganScreenState extends State<LaporanKeuanganScreen> {
           Row(
             children: const [
               Expanded(
-                  child: Text('Tanggal',
-                      style: TextStyle(fontWeight: FontWeight.bold))),
+                child: Text(
+                  'Tanggal',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
               Expanded(
-                  child: Text('ID Tagihan',
-                      style: TextStyle(fontWeight: FontWeight.bold))),
+                child: Text(
+                  'ID Tagihan',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
               Expanded(
-                  child: Text('Pelanggan',
-                      style: TextStyle(fontWeight: FontWeight.bold))),
+                child: Text(
+                  'Pelanggan',
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 8),
-          for (var tx in transactions)
-            Row(
+          ...transactions.map((tx) {
+            return Row(
               children: [
-                Expanded(child: Text(tx['date'])),
-                Expanded(child: Text(tx['bill_id'])),
-                Expanded(child: Text('${tx['name']}\n+${tx['phone']}')),
+                Expanded(child: Text(tx['tanggal'] ?? '-')),
+                Expanded(
+                    child: Text(tx['tagihan_id']?.toString() ?? '-')),
+                Expanded(child: Text(tx['nama'] ?? '-')),
               ],
-            ),
+            );
+          }),
         ],
       ),
     );

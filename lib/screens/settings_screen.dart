@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../widgets/admin_sidebar.dart';
+import '../services/settings_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -13,12 +15,84 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool enforceHttps = true;
   bool midtransEnabled = true;
 
-  TextEditingController timeoutCtrl = TextEditingController(text: "30");
-  TextEditingController midtransKeyCtrl =
-      TextEditingController(text: "085710887804");
+  final TextEditingController timeoutCtrl =
+      TextEditingController(text: "30");
+  final TextEditingController midtransKeyCtrl =
+      TextEditingController(text: "");
+
+  bool loading = true;
+
+  // =========================
+  // LOAD SETTINGS (BACKEND)
+  // =========================
+  Future<void> _load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token') ?? '';
+
+    final data = await SettingsService.getSettings(token);
+
+    setState(() {
+      waNotif = data['wa_notification'] ?? true;
+      enforceHttps = data['enforce_https'] ?? true;
+      midtransEnabled = data['midtrans_enabled'] ?? true;
+
+      timeoutCtrl.text =
+          (data['notification_timeout'] ?? 30).toString();
+      midtransKeyCtrl.text =
+          data['midtrans_key']?.toString() ?? '';
+
+      loading = false;
+    });
+  }
+
+  // =========================
+  // SAVE SETTINGS
+  // =========================
+  Future<void> _save() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token') ?? '';
+
+    await SettingsService.updateSettings(
+      token,
+      waNotif: waNotif,
+      timeout: int.tryParse(timeoutCtrl.text) ?? 30,
+      enforceHttps: enforceHttps,
+      midtransEnabled: midtransEnabled,
+    );
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Pengaturan disimpan")),
+    );
+  }
+
+  // =========================
+  // REGENERATE JWT
+  // =========================
+  Future<void> _regenJwt() async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('token') ?? '';
+
+    await SettingsService.regenerateJwt(token);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("JWT Secret regenerated")),
+    );
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
   @override
   Widget build(BuildContext context) {
+    if (loading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       drawer: const AdminSidebar(),
 
@@ -26,20 +100,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
         backgroundColor: Colors.white,
         elevation: 1,
         iconTheme: const IconThemeData(color: Colors.black),
-
         leading: Builder(
           builder: (context) => IconButton(
             icon: const Icon(Icons.menu),
             onPressed: () => Scaffold.of(context).openDrawer(),
           ),
         ),
-
         title: const Text(
           "Pengaturan",
-          style: TextStyle(
-            color: Colors.black,
-            fontWeight: FontWeight.bold,
-          ),
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
       ),
 
@@ -58,16 +127,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text("WhatsApp Notification", style: TextStyle(fontSize: 14)),
+                const Text("WhatsApp Notification",
+                    style: TextStyle(fontSize: 14)),
                 Switch(
                   value: waNotif,
-                  onChanged: (v) => setState(() => waNotif = v),
+                  onChanged: (v) {
+                    setState(() => waNotif = v);
+                    _save();
+                  },
                 )
               ],
             ),
-            const SizedBox(height: 10),
 
-            const Text("Notification Timeout", style: TextStyle(fontSize: 14)),
+            const SizedBox(height: 10),
+            const Text("Notification Timeout",
+                style: TextStyle(fontSize: 14)),
             const SizedBox(height: 6),
 
             Container(
@@ -83,24 +157,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     child: TextField(
                       controller: timeoutCtrl,
                       keyboardType: TextInputType.number,
+                      onSubmitted: (_) => _save(),
                       decoration: const InputDecoration(
                         border: InputBorder.none,
                       ),
                     ),
                   ),
-                  const Text("sec", style: TextStyle(color: Colors.grey)),
+                  const Text("sec",
+                      style: TextStyle(color: Colors.grey)),
                 ],
               ),
             ),
 
-            const SizedBox(height: 4),
-            const Text(
-              "Time before notification expires",
-              style: TextStyle(fontSize: 11, color: Colors.grey),
-            ),
-
             const SizedBox(height: 25),
-
 
             const Text(
               "Security Setting",
@@ -109,7 +178,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 10),
 
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(8),
                 color: Colors.grey.shade100,
@@ -118,16 +188,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text("Regenerate JWT Secret", style: TextStyle(fontSize: 14)),
+                  const Text("Regenerate JWT Secret",
+                      style: TextStyle(fontSize: 14)),
                   IconButton(
                     icon: const Icon(Icons.refresh),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text("JWT Secret regenerated "),
-                        ),
-                      );
-                    },
+                    onPressed: _regenJwt,
                   ),
                 ],
               ),
@@ -142,14 +207,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(fontSize: 14)),
                 Switch(
                   value: enforceHttps,
-                  onChanged: (v) => setState(() => enforceHttps = v),
+                  onChanged: (v) {
+                    setState(() => enforceHttps = v);
+                    _save();
+                  },
                 ),
               ],
             ),
 
             const SizedBox(height: 25),
 
-                      const Text(
+            const Text(
               "API Integrations",
               style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
@@ -168,7 +236,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 Switch(
                   value: midtransEnabled,
-                  onChanged: (v) => setState(() => midtransEnabled = v),
+                  onChanged: (v) {
+                    setState(() => midtransEnabled = v);
+                    _save();
+                  },
                 ),
               ],
             ),
@@ -193,32 +264,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                     ),
                   ),
-                  IconButton(
-                    icon: const Icon(Icons.edit),
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (_) => AlertDialog(
-                          title: const Text("Edit Midtrans Key"),
-                          content: TextField(
-                            controller: midtransKeyCtrl,
-                            decoration: const InputDecoration(
-                              hintText: "Masukkan API Key",
-                            ),
-                          ),
-                          actions: [
-                            TextButton(
-                              child: const Text("Simpan"),
-                              onPressed: () {
-                                Navigator.pop(context);
-                                setState(() {});
-                              },
-                            )
-                          ],
-                        ),
-                      );
-                    },
-                  )
                 ],
               ),
             ),

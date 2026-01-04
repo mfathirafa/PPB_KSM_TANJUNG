@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
 import '../widgets/admin_sidebar.dart';
-import '../services/api_service.dart';
+import '../services/payment_admin_service.dart';
 
 class PaymentConfirmationScreen extends StatefulWidget {
   const PaymentConfirmationScreen({super.key});
@@ -12,8 +13,6 @@ class PaymentConfirmationScreen extends StatefulWidget {
 }
 
 class _PaymentConfirmationScreenState extends State<PaymentConfirmationScreen> {
-  String filterStatus = "Semua";
-  String filterMethod = "Semua";
   bool loading = true;
 
   List<Map<String, dynamic>> allPayments = [];
@@ -30,44 +29,46 @@ class _PaymentConfirmationScreenState extends State<PaymentConfirmationScreen> {
   }
 
   Future<void> _loadPayments() async {
-    final token = await _getToken();
-    final res = await ApiService.getAdminPembayaran(token);
+    try {
+      final token = await _getToken();
+      final res = await PaymentAdminService.list(token);
 
-    setState(() {
-      allPayments = res.map<Map<String, dynamic>>((p) {
-        String statusUI;
-        if (p['status'] == 'approved') {
-          statusUI = "Terkonfirmasi";
-        } else if (p['status'] == 'rejected') {
-          statusUI = "Ditolak";
-        } else {
-          statusUI = "Menunggu Konfirmasi";
-        }
+      setState(() {
+        allPayments = res.map<Map<String, dynamic>>((p) {
+          final rawStatus = p['status'];
 
-        return {
-          "id": "#${p['id']}",
-          "raw_id": p['id'],
-          "name": p['nama'],
-          "phone": p['phone'],
-          "amount": p['jumlah'].toString(),
-          "date": p['created_at'],
-          "method": p['metode'],
-          "status": statusUI,
-        };
-      }).toList();
+          String statusLabel;
+          Color statusColor;
 
-      loading = false;
-    });
-  }
+          if (rawStatus == 'pending') {
+            statusLabel = 'Menunggu Konfirmasi';
+            statusColor = Colors.orange;
+          } else if (rawStatus == 'confirmed') {
+            statusLabel = 'Terkonfirmasi';
+            statusColor = Colors.green;
+          } else {
+            statusLabel = 'Ditolak';
+            statusColor = Colors.red;
+          }
 
-  List<Map<String, dynamic>> get filteredPayments {
-    return allPayments.where((p) {
-      final matchStatus =
-          filterStatus == "Semua" || p["status"] == filterStatus;
-      final matchMethod =
-          filterMethod == "Semua" || p["method"] == filterMethod;
-      return matchStatus && matchMethod;
-    }).toList();
+          return {
+            "id": p['id'],
+            "user_name": p['user']?['name'] ?? '-',
+            "user_phone": p['user']?['phone'] ?? '-',
+            "amount": p['jumlah_bayar'].toString(),
+            "date": p['created_at'],
+            "method": p['metode'],
+            "status_raw": rawStatus,
+            "status_label": statusLabel,
+            "status_color": statusColor,
+          };
+        }).toList();
+
+        loading = false;
+      });
+    } catch (_) {
+      setState(() => loading = false);
+    }
   }
 
   @override
@@ -91,59 +92,25 @@ class _PaymentConfirmationScreenState extends State<PaymentConfirmationScreen> {
           : ListView(
               padding: const EdgeInsets.all(16),
               children: [
-                for (var p in filteredPayments)
-                  _confirmationCard(
-                    context,
-                    p["name"],
-                    p["phone"],
-                    p["id"],
-                    p["amount"],
-                    p["date"],
-                    p["method"],
-                    p["status"],
-                    p["raw_id"],
-                  ),
+                for (var p in allPayments)
+                  _paymentCard(context, p),
               ],
             ),
     );
   }
 
-  Widget _confirmationCard(
-    BuildContext context,
-    String name,
-    String phone,
-    String tagihanId,
-    String amount,
-    String date,
-    String method,
-    String status,
-    int rawId,
-  ) {
-    Color tagColor;
-    Color tagBg;
-
-    if (status == "Menunggu Konfirmasi") {
-      tagColor = Colors.orange.shade800;
-      tagBg = Colors.orange.withOpacity(0.2);
-    } else if (status == "Terkonfirmasi") {
-      tagColor = Colors.green.shade800;
-      tagBg = Colors.green.withOpacity(0.2);
-    } else {
-      tagColor = Colors.red.shade800;
-      tagBg = Colors.red.withOpacity(0.2);
-    }
+  Widget _paymentCard(BuildContext context, Map<String, dynamic> p) {
+    final bool canProcess = p['status_raw'] == 'pending';
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      padding: const EdgeInsets.all(12),
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: status == "Menunggu Konfirmasi"
-              ? Colors.blue.shade400
-              : Colors.grey.shade300,
-          width: status == "Menunggu Konfirmasi" ? 2 : 1,
+          color: canProcess ? Colors.orange : Colors.grey.shade300,
+          width: canProcess ? 2 : 1,
         ),
       ),
       child: Column(
@@ -152,42 +119,54 @@ class _PaymentConfirmationScreenState extends State<PaymentConfirmationScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(name,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.bold, fontSize: 16)),
+              Text(
+                p['user_name'],
+                style: const TextStyle(
+                    fontWeight: FontWeight.bold, fontSize: 16),
+              ),
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration:
-                    BoxDecoration(color: tagBg, borderRadius: BorderRadius.circular(4)),
-                child: Text(status,
-                    style: TextStyle(
-                        color: tagColor,
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold)),
+                decoration: BoxDecoration(
+                  color: p['status_color'].withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Text(
+                  p['status_label'],
+                  style: TextStyle(
+                    color: p['status_color'],
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ),
             ],
           ),
-          Text(phone, style: TextStyle(color: Colors.grey[600])),
+          Text(p['user_phone'],
+              style: TextStyle(color: Colors.grey[600])),
           const SizedBox(height: 8),
-          Text("Tagihan $tagihanId",
+          Text("Pembayaran #${p['id']}",
               style: TextStyle(color: Colors.grey[600])),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text("Rp $amount",
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold)),
-                Text(date,
-                    style:
-                        TextStyle(color: Colors.grey[600], fontSize: 12)),
-              ]),
-              Text(method,
-                  style: const TextStyle(fontWeight: FontWeight.w500)),
+              Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text("Rp ${p['amount']}",
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(p['date'],
+                        style: TextStyle(
+                            color: Colors.grey[600], fontSize: 12)),
+                  ]),
+              Text(p['method'],
+                  style:
+                      const TextStyle(fontWeight: FontWeight.w500)),
             ],
           ),
-          if (status == "Menunggu Konfirmasi") ...[
+
+          if (canProcess) ...[
             const Divider(height: 20),
             Row(
               mainAxisAlignment: MainAxisAlignment.end,
@@ -195,11 +174,11 @@ class _PaymentConfirmationScreenState extends State<PaymentConfirmationScreen> {
                 ElevatedButton(
                   onPressed: () async {
                     final token = await _getToken();
-                    await ApiService.approvePembayaran(token, rawId);
+                    await PaymentAdminService.approve(token, p['id']);
                     _loadPayments();
                   },
-                  style:
-                      ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.green),
                   child: const Text("Terima",
                       style: TextStyle(color: Colors.white)),
                 ),
@@ -207,11 +186,11 @@ class _PaymentConfirmationScreenState extends State<PaymentConfirmationScreen> {
                 ElevatedButton(
                   onPressed: () async {
                     final token = await _getToken();
-                    await ApiService.rejectPembayaran(token, rawId);
+                    await PaymentAdminService.reject(token, p['id']);
                     _loadPayments();
                   },
-                  style:
-                      ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red),
                   child: const Text("Tolak",
                       style: TextStyle(color: Colors.white)),
                 ),

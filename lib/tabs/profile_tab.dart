@@ -8,10 +8,15 @@ class ProfileTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final String name = member['name'] ?? '-';
+    final String name =
+        (member['name'] ?? '').toString().trim();
     final String phone = member['phone'] ?? '-';
-    final String alamat = member['pelanggan']?['alamat'] ?? '-';
+    final Map<String, dynamic>? pelanggan = member['pelanggan'];
+    final String alamat = pelanggan?['alamat'] ?? '-';
     final String userId = member['id'].toString();
+
+    final String avatarText =
+        name.isNotEmpty ? name[0].toUpperCase() : '?';
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
@@ -26,9 +31,7 @@ class ProfileTab extends StatelessWidget {
                 children: [
                   CircleAvatar(
                     radius: 28,
-                    child: Text(
-                      name.isNotEmpty ? name[0].toUpperCase() : '?',
-                    ),
+                    child: Text(avatarText),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
@@ -36,9 +39,9 @@ class ProfileTab extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          name,
-                          style:
-                              const TextStyle(fontWeight: FontWeight.bold),
+                          name.isNotEmpty ? name : '-',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 4),
                         Text(
@@ -65,16 +68,21 @@ class ProfileTab extends StatelessWidget {
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  InfoRow(title: 'Nama Lengkap', value: name),
-                  const SizedBox(height: 6),
-                  InfoRow(title: 'No. WhatsApp', value: phone),
-                  const SizedBox(height: 6),
-                  InfoRow(title: 'Alamat', value: alamat),
-                ],
-              ),
+              child: pelanggan == null
+                  ? const Text(
+                      'Data pelanggan belum tersedia.',
+                      style: TextStyle(color: Colors.grey),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        InfoRow(title: 'Nama Lengkap', value: name),
+                        const SizedBox(height: 6),
+                        InfoRow(title: 'No. WhatsApp', value: phone),
+                        const SizedBox(height: 6),
+                        InfoRow(title: 'Alamat', value: alamat),
+                      ],
+                    ),
             ),
           ),
 
@@ -87,6 +95,7 @@ class ProfileTab extends StatelessWidget {
               onPressed: () {
                 showDialog(
                   context: context,
+                  barrierDismissible: false,
                   builder: (_) => LogoutConfirmationDialog(),
                 );
               },

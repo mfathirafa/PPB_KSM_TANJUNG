@@ -1,83 +1,49 @@
 import 'package:flutter/material.dart';
 
-class RiwayatScreen extends StatelessWidget {
-  final List<dynamic> history;
-  const RiwayatScreen({required this.history, super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
-        elevation: 0,
-        title: const Text(
-          'KSM Tanjung',
-          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
-        ),
-      ),
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        currentIndex: 2,
-        selectedItemColor: Colors.green.shade700,
-        unselectedItemColor: Colors.grey.shade600,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home_outlined),
-            label: 'Home',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.receipt_long_outlined),
-            label: 'Tagihan',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.history),
-            label: 'Riwayat',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person_outline),
-            label: 'Profil',
-          ),
-        ],
-      ),
-      body: RiwayatTab(history: history),
-    );
-  }
-}
-
-// =======================================================
-// ======================= TAB ===========================
-// =======================================================
-
 class RiwayatTab extends StatefulWidget {
-  final List<dynamic> history;
+  final List<Map<String, dynamic>> history;
   const RiwayatTab({required this.history, super.key});
 
   @override
-  _RiwayatTabState createState() => _RiwayatTabState();
+  State<RiwayatTab> createState() => _RiwayatTabState();
 }
 
 class _RiwayatTabState extends State<RiwayatTab> {
   String selectedStatus = 'Semua';
   String selectedTanggal = 'Terbaru';
 
-  bool _isConfirmed(String status) => status == 'confirmed';
+  // =========================
+  // STATUS CHECKER (FINAL - BACKEND BASED)
+  // =========================
+  bool _isLunas(String? status) => status == 'confirmed';
+  bool _isPending(String? status) => status == 'pending';
+  bool _isWaiting(String? status) => status == 'waiting';
+  bool _isRejected(String? status) => status == 'rejected';
 
-  List<dynamic> _filteredHistory() {
-    List<dynamic> data = List.from(widget.history);
+  // =========================
+  // FILTER DATA
+  // =========================
+  List<Map<String, dynamic>> _filteredHistory() {
+    List<Map<String, dynamic>> data =
+        List<Map<String, dynamic>>.from(widget.history);
 
     if (selectedStatus != 'Semua') {
       data = data.where((h) {
+        final status = h['status'];
         if (selectedStatus == 'Sudah Dibayar') {
-          return h['status'] == 'confirmed';
+          return _isLunas(status);
         }
-        return h['status'] == 'pending';
+        if (selectedStatus == 'Belum Dibayar') {
+          return _isPending(status) || _isWaiting(status);
+        }
+        return true;
       }).toList();
     }
 
     data.sort((a, b) {
-      final aDate = DateTime.parse(a['created_at']);
-      final bDate = DateTime.parse(b['created_at']);
+      final aDate = DateTime.tryParse(a['tanggal'] ?? '') ?? DateTime(2000);
+      final bDate = DateTime.tryParse(b['tanggal'] ?? '') ?? DateTime(2000);
+
       return selectedTanggal == 'Terbaru'
           ? bDate.compareTo(aDate)
           : aDate.compareTo(bDate);
@@ -86,32 +52,73 @@ class _RiwayatTabState extends State<RiwayatTab> {
     return data;
   }
 
-  String _formatDate(String raw) {
-    final d = DateTime.parse(raw);
+  // =========================
+  // FORMAT TANGGAL
+  // =========================
+  String _formatDate(String? raw) {
+    if (raw == null) return '-';
+    final d = DateTime.tryParse(raw);
+    if (d == null) return '-';
+
     return '${d.day}/${d.month}/${d.year} ${d.hour}:${d.minute.toString().padLeft(2, '0')}';
   }
 
-  Widget _statusChip(String status) {
-    final isConfirmed = status == 'confirmed';
+  // =========================
+  // STATUS CHIP (FINAL)
+  // =========================
+  Widget _statusChip(String? status) {
+    if (_isLunas(status)) {
+      return _chip(
+        label: 'Sudah Dibayar',
+        bg: const Color(0xFFE8F5E9),
+        border: Colors.green.shade200,
+        text: Colors.green.shade800,
+      );
+    }
+
+    if (_isRejected(status)) {
+      return _chip(
+        label: 'Ditolak',
+        bg: const Color(0xFFFFEBEE),
+        border: Colors.red.shade200,
+        text: Colors.red.shade800,
+      );
+    }
+
+    if (_isWaiting(status)) {
+      return _chip(
+        label: 'Menunggu Verifikasi',
+        bg: const Color(0xFFFFFDE7),
+        border: Colors.amber.shade200,
+        text: Colors.amber.shade800,
+      );
+    }
+
+    return _chip(
+      label: 'Belum Dibayar',
+      bg: const Color(0xFFFFF3E0),
+      border: Colors.orange.shade200,
+      text: Colors.orange.shade800,
+    );
+  }
+
+  Widget _chip({
+    required String label,
+    required Color bg,
+    required Color border,
+    required Color text,
+  }) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: isConfirmed
-            ? const Color(0xFFE8F5E9)
-            : const Color(0xFFFFFDE7),
+        color: bg,
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(
-          color: isConfirmed
-              ? Colors.green.shade200
-              : Colors.amber.shade200,
-        ),
+        border: Border.all(color: border),
       ),
       child: Text(
-        isConfirmed ? 'Terkonfirmasi' : 'Menunggu Pembayaran',
+        label,
         style: TextStyle(
-          color: isConfirmed
-              ? Colors.green.shade800
-              : Colors.amber.shade800,
+          color: text,
           fontWeight: FontWeight.w600,
           fontSize: 12,
         ),
@@ -134,6 +141,7 @@ class _RiwayatTabState extends State<RiwayatTab> {
           ),
           const SizedBox(height: 12),
 
+          // ================= FILTER =================
           Row(
             children: [
               Expanded(
@@ -143,8 +151,7 @@ class _RiwayatTabState extends State<RiwayatTab> {
                       .map((e) =>
                           DropdownMenuItem(value: e, child: Text(e)))
                       .toList(),
-                  onChanged: (v) =>
-                      setState(() => selectedStatus = v!),
+                  onChanged: (v) => setState(() => selectedStatus = v!),
                 ),
               ),
               const SizedBox(width: 12),
@@ -155,8 +162,7 @@ class _RiwayatTabState extends State<RiwayatTab> {
                       .map((e) =>
                           DropdownMenuItem(value: e, child: Text(e)))
                       .toList(),
-                  onChanged: (v) =>
-                      setState(() => selectedTanggal = v!),
+                  onChanged: (v) => setState(() => selectedTanggal = v!),
                 ),
               ),
             ],
@@ -164,44 +170,40 @@ class _RiwayatTabState extends State<RiwayatTab> {
 
           const SizedBox(height: 16),
 
+          // ================= LIST =================
           Expanded(
             child: data.isEmpty
-                ? const Center(
-                    child: Text('Belum ada riwayat pembayaran'),
-                  )
+                ? const Center(child: Text('Belum ada riwayat pembayaran'))
                 : ListView.builder(
                     itemCount: data.length,
                     itemBuilder: (_, i) {
                       final h = data[i];
-                      final isConfirmed =
-                          _isConfirmed(h['status']);
+                      final isLunas = _isLunas(h['status']);
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
-                            crossAxisAlignment:
-                                CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
                                   Text(
-                                    'Tagihan #${h['tagihan_id']}',
+                                    'Tagihan #${h['tagihan_id'] ?? '-'}',
                                     style: const TextStyle(
-                                        fontWeight:
-                                            FontWeight.bold),
+                                        fontWeight: FontWeight.bold),
                                   ),
                                   _statusChip(h['status']),
                                 ],
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                _formatDate(h['created_at']),
-                                style: TextStyle(
-                                    color: Colors.grey[600]),
+                                _formatDate(h['tanggal']),
+                                style:
+                                    TextStyle(color: Colors.grey[600]),
                               ),
                               Divider(
                                   height: 24,
@@ -210,12 +212,12 @@ class _RiwayatTabState extends State<RiwayatTab> {
                                 mainAxisAlignment:
                                     MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text(h['metode']),
+                                  Text(h['metode'] ?? '-'),
                                   Text(
-                                    'Rp ${h['jumlah_bayar']}',
+                                    'Rp ${h['jumlah'] ?? 0}',
                                     style: TextStyle(
                                       fontWeight: FontWeight.bold,
-                                      color: isConfirmed
+                                      color: isLunas
                                           ? Colors.green
                                           : Colors.black,
                                     ),

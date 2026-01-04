@@ -2,8 +2,14 @@ import 'package:flutter/material.dart';
 import '../screens/pembayaran_screen.dart';
 
 class CekTagihanTab extends StatefulWidget {
-  final List<dynamic> bills;
-  const CekTagihanTab({required this.bills, super.key});
+  final List<Map<String, dynamic>> bills;
+  final String token;
+
+  const CekTagihanTab({
+    required this.bills,
+    required this.token,
+    super.key,
+  });
 
   @override
   State<CekTagihanTab> createState() => _CekTagihanTabState();
@@ -13,19 +19,20 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
   String selectedStatus = 'Semua';
   String selectedTanggal = 'Terbaru';
 
-  bool _isBelumDibayar(String status) =>
-      status == 'belum_dibayar' || status == 'pending';
-
-  bool _isSudahDibayar(String status) =>
-      status == 'dibayar' || status == 'lunas';
+  // ================= STATUS BACKEND =================
+  bool _isPending(String? status) => status == 'pending';
+  bool _isWaiting(String? status) => status == 'waiting';
+  bool _isConfirmed(String? status) => status == 'confirmed';
 
   @override
   Widget build(BuildContext context) {
-    final belumDibayar =
-        widget.bills.where((b) => _isBelumDibayar(b['status'])).toList();
+    final pending = widget.bills
+        .where((b) => _isPending(b['status']))
+        .toList();
 
-    final sudahDibayar =
-        widget.bills.where((b) => _isSudahDibayar(b['status'])).toList();
+    final confirmed = widget.bills
+        .where((b) => _isConfirmed(b['status']))
+        .toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -34,8 +41,10 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Text("Summary",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            const Text(
+              "Summary",
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
             Text(
               DateTime.now().year.toString(),
               style: TextStyle(color: Colors.grey[600]),
@@ -47,21 +56,19 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
           children: [
             Expanded(
               child: _summaryCard(
-                title: "Tagihan yang\nbelum dibayar",
-                count: "${belumDibayar.length} Tagihan",
-                total:
-                    "Rp ${_sum(belumDibayar)}",
-                color: Colors.green[700]!,
+                title: "Tagihan\nBelum Dibayar",
+                count: "${pending.length} Tagihan",
+                total: "Rp ${_sum(pending)}",
+                color: Colors.orange,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _summaryCard(
-                title: "Tagihan yang\nsudah dibayar",
-                count: "${sudahDibayar.length} Tagihan",
-                total:
-                    "Rp ${_sum(sudahDibayar)}",
-                color: Colors.black87,
+                title: "Tagihan\nSudah Dibayar",
+                count: "${confirmed.length} Tagihan",
+                total: "Rp ${_sum(confirmed)}",
+                color: Colors.green,
               ),
             ),
           ],
@@ -75,9 +82,13 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
             Expanded(
               child: DropdownButtonFormField<String>(
                 value: selectedStatus,
-                items: ['Semua', 'Belum Dibayar', 'Sudah Dibayar']
-                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                    .toList(),
+                items: const [
+                  DropdownMenuItem(value: 'Semua', child: Text('Semua')),
+                  DropdownMenuItem(
+                      value: 'Belum Dibayar', child: Text('Belum Dibayar')),
+                  DropdownMenuItem(
+                      value: 'Sudah Dibayar', child: Text('Sudah Dibayar')),
+                ],
                 onChanged: (v) => setState(() => selectedStatus = v!),
               ),
             ),
@@ -85,9 +96,10 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
             Expanded(
               child: DropdownButtonFormField<String>(
                 value: selectedTanggal,
-                items: ['Terbaru', 'Terlama']
-                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
-                    .toList(),
+                items: const [
+                  DropdownMenuItem(value: 'Terbaru', child: Text('Terbaru')),
+                  DropdownMenuItem(value: 'Terlama', child: Text('Terlama')),
+                ],
                 onChanged: (v) => setState(() => selectedTanggal = v!),
               ),
             ),
@@ -102,30 +114,41 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
     );
   }
 
-  /* ================= HELPERS ================= */
-  String _sum(List<dynamic> bills) {
-    final total =
-        bills.fold<int>(0, (s, b) => s + (b['jumlah'] as int));
-    return total.toString();
+  // ================= HELPERS =================
+  int _sum(List<Map<String, dynamic>> bills) {
+    return bills.fold<int>(
+      0,
+      (s, b) => s + int.tryParse(b['jumlah']?.toString() ?? '0')!,
+    );
   }
 
-  List<dynamic> _filteredBills() {
-    List<dynamic> data = List.from(widget.bills);
+  List<Map<String, dynamic>> _filteredBills() {
+    var data = List<Map<String, dynamic>>.from(widget.bills);
 
     if (selectedStatus == 'Belum Dibayar') {
-      data = data.where((b) => _isBelumDibayar(b['status'])).toList();
+      data = data.where((b) =>
+          _isPending(b['status']) || _isWaiting(b['status'])).toList();
     } else if (selectedStatus == 'Sudah Dibayar') {
-      data = data.where((b) => _isSudahDibayar(b['status'])).toList();
+      data = data.where((b) => _isConfirmed(b['status'])).toList();
     }
 
-    if (selectedTanggal == 'Terbaru') {
-      data = data.reversed.toList();
-    }
+    data.sort((a, b) {
+      final da =
+          DateTime.tryParse(a['tanggal']?.toString() ?? '') ??
+              DateTime(2000);
+      final db =
+          DateTime.tryParse(b['tanggal']?.toString() ?? '') ??
+              DateTime(2000);
+
+      return selectedTanggal == 'Terbaru'
+          ? db.compareTo(da)
+          : da.compareTo(db);
+    });
 
     return data;
   }
 
-  /* ================= UI ================= */
+  // ================= UI =================
   Widget _summaryCard({
     required String title,
     required String count,
@@ -137,24 +160,29 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(color: Colors.grey.withOpacity(0.2), blurRadius: 4)
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 4),
         ],
       ),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(title),
-        const SizedBox(height: 8),
-        Text(count, style: const TextStyle(fontWeight: FontWeight.bold)),
-        const SizedBox(height: 4),
-        Text(total,
-            style: TextStyle(color: color, fontWeight: FontWeight.bold)),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title),
+          const SizedBox(height: 8),
+          Text(count, style: const TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 4),
+          Text(
+            total,
+            style: TextStyle(color: color, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
     );
   }
 
   Widget _billCard(BuildContext context, Map<String, dynamic> b) {
-    final bool isPaid = _isSudahDibayar(b['status']);
-    final Color badgeColor = isPaid ? Colors.green : Colors.amber;
+    final status = b['status'];
+    final canPay = _isPending(status);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -162,50 +190,66 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(color: Colors.grey.withOpacity(0.15), blurRadius: 6)
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 6),
         ],
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(
-            b['pelanggan']['nama'],
+            'Tagihan #${b['id']}',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: badgeColor.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              isPaid ? 'Sudah Dibayar' : 'Belum Dibayar',
-              style: TextStyle(color: badgeColor),
-            ),
-          ),
+          _statusBadge(status),
         ]),
-        Text(b['pelanggan']['no_hp']),
-        Text('Tagihan #${b['id']}'),
         const SizedBox(height: 6),
-        Text('Tanggal: ${b['tanggal']}'),
+        Text('Tanggal: ${b['tanggal'] ?? '-'}'),
         const SizedBox(height: 6),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text('Rp ${b['jumlah']}',
-              style: const TextStyle(fontWeight: FontWeight.bold)),
-          if (!isPaid)
+          Text(
+            'Rp ${b['jumlah'] ?? 0}',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+          if (canPay)
             ElevatedButton(
               onPressed: () {
                 Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => PembayaranScreen(bill: b),
+                    builder: (_) => PembayaranScreen(
+                      bill: b,
+                      token: widget.token,
+                    ),
                   ),
                 );
               },
               child: const Text("Bayar Sekarang"),
-            )
+            ),
         ]),
       ]),
+    );
+  }
+
+  Widget _statusBadge(String? status) {
+    if (_isConfirmed(status)) {
+      return _badge('Sudah Dibayar', Colors.green);
+    }
+
+    if (_isWaiting(status)) {
+      return _badge('Menunggu Verifikasi', Colors.amber);
+    }
+
+    return _badge('Belum Dibayar', Colors.orange);
+  }
+
+  Widget _badge(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.2),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(label, style: TextStyle(color: color)),
     );
   }
 }
