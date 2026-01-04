@@ -52,7 +52,7 @@ class AuthController extends Controller
             [
                 'otp' => (string) $otp,
                 'otp_expires_at' => now()->addMinutes(3),
-                'role' => 'customer', // 🔒 DEFAULT ROLE
+                'role' => $request->input('role', 'customer'), // 🔒 DEFAULT ROLE
             ]
         );
 

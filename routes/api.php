@@ -82,7 +82,9 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware(['auth:sanctum', 'admin'])
     ->prefix('admin')
     ->group(function () {
+
         // Dashboard Admin
+        
         Route::get('/dashboard', [DashboardAdminController::class, 'index']);
 
     
