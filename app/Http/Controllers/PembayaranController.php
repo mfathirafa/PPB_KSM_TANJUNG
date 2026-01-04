@@ -6,15 +6,15 @@ use Illuminate\Http\Request;
 use App\Models\Pembayaran;
 use App\Models\Tagihan;
 use App\Models\User;
-use App\Http\Controllers\NotifikasiController;
+use Illuminate\Support\Facades\DB;
 
 class PembayaranController extends Controller
 {
     /**
-     * ============================
+     * =====================================================
      * CUSTOMER MEMBUAT PEMBAYARAN
      * POST /pembayaran/create
-     * ============================
+     * =====================================================
      */
     public function store(Request $request)
     {
@@ -25,68 +25,69 @@ class PembayaranController extends Controller
 
         $user = $request->user();
 
+        // 🔒 ROLE & RELASI CHECK
         if ($user->role !== 'customer' || !$user->pelanggan) {
             return response()->json(['message' => 'Forbidden'], 403);
         }
 
-        // Pastikan tagihan milik customer
+        // 🔒 PASTIKAN TAGIHAN MILIK CUSTOMER
         $tagihan = Tagihan::where('id', $request->tagihan_id)
             ->where('pelanggan_id', $user->pelanggan->id)
             ->firstOrFail();
 
-        // ❗ BLOK JIKA ADA PEMBAYARAN PENDING
-        $pending = Pembayaran::where('tagihan_id', $tagihan->id)
-            ->where('status', 'pending')
-            ->first();
-
-        if ($pending) {
-            return response()->json([
-                'message' => 'Masih ada pembayaran menunggu verifikasi'
-            ], 409);
-        }
-
-        // ❗ CEGAH BAYAR TAGIHAN YANG SUDAH LUNAS
-        $confirmed = Pembayaran::where('tagihan_id', $tagihan->id)
-            ->where('status', 'confirmed')
+        // 🔥 BLOK JIKA ADA PEMBAYARAN AKTIF (PENDING / CONFIRMED)
+        $exists = Pembayaran::where('tagihan_id', $tagihan->id)
+            ->whereIn('status', ['pending', 'confirmed'])
             ->exists();
 
-        if ($confirmed) {
+        if ($exists) {
             return response()->json([
-                'message' => 'Tagihan sudah lunas'
+                'message' => 'Pembayaran masih diproses atau tagihan sudah lunas'
             ], 409);
         }
 
-        // ✅ BUAT PEMBAYARAN BARU
-        $pembayaran = Pembayaran::create([
-            'user_id'      => $user->id,
-            'tagihan_id'   => $tagihan->id,
-            'tanggal'      => now(),
-            'jumlah_bayar' => $tagihan->jumlah,
-            'metode'       => $request->metode,
-            'status'       => 'pending',
-        ]);
+        DB::beginTransaction();
 
-        // 🔔 NOTIFIKASI KE ADMIN
-        $adminIds = User::where('role', 'admin')->pluck('id');
-        foreach ($adminIds as $adminId) {
-            NotifikasiController::createPembayaranNotif(
-                $adminId,
-                'Pembayaran baru menunggu verifikasi'
-            );
+        try {
+            // ✅ BUAT PEMBAYARAN BARU
+            $pembayaran = Pembayaran::create([
+                'user_id'      => $user->id,
+                'tagihan_id'   => $tagihan->id,
+                'jumlah_bayar' => $tagihan->jumlah,
+                'metode'       => $request->metode,
+                'status'       => 'pending',
+            ]);
+
+            // 🔔 NOTIFIKASI KE ADMIN
+            $adminIds = User::where('role', 'admin')->pluck('id');
+            foreach ($adminIds as $adminId) {
+                NotifikasiController::createPembayaranNotif(
+                    $adminId,
+                    'Pembayaran baru menunggu verifikasi'
+                );
+            }
+
+            DB::commit();
+
+            return response()->json([
+                'message'        => 'Pembayaran berhasil dibuat',
+                'pembayaran_id'  => $pembayaran->id,
+                'pembayaran_status' => 'pending'
+            ], 201);
+
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json([
+                'message' => 'Gagal membuat pembayaran'
+            ], 500);
         }
-
-        return response()->json([
-            'message' => 'Pembayaran berhasil dibuat',
-            'status'  => 'menunggu_verifikasi',
-            'pembayaran_id' => $pembayaran->id
-        ], 201);
     }
 
     /**
-     * ============================
+     * =====================================================
      * UPLOAD BUKTI PEMBAYARAN
      * POST /pembayaran/upload-bukti
-     * ============================
+     * =====================================================
      */
     public function uploadBukti(Request $request)
     {
@@ -115,10 +116,10 @@ class PembayaranController extends Controller
     }
 
     /**
-     * ============================
+     * =====================================================
      * RIWAYAT PEMBAYARAN CUSTOMER
      * GET /pembayaran/riwayat
-     * ============================
+     * =====================================================
      */
     public function riwayatCustomer(Request $request)
     {
@@ -134,16 +135,17 @@ class PembayaranController extends Controller
             ->get()
             ->map(function ($p) {
                 return [
-                    'id' => $p->id,
-                    'tagihan_id' => $p->tagihan_id,
-                    'tanggal' => $p->created_at->format('Y-m-d H:i'),
-                    'jumlah' => $p->jumlah_bayar,
-                    'metode' => $p->metode,
-                    'status' => match ($p->status) {
-                        'pending'   => 'menunggu_verifikasi',
-                        'confirmed' => 'lunas',
-                        'rejected'  => 'ditolak',
-                        default     => $p->status,
+                    'id'          => $p->id,
+                    'tagihan_id'  => $p->tagihan_id,
+                    'tanggal'     => $p->created_at->format('Y-m-d H:i'),
+                    'jumlah'      => $p->jumlah_bayar,
+                    'metode'      => $p->metode,
+                    'status'      => $p->status, // pending | confirmed | rejected
+                    'status_label'=> match ($p->status) {
+                        'pending'   => 'Menunggu Verifikasi',
+                        'confirmed' => 'Lunas',
+                        'rejected'  => 'Ditolak',
+                        default     => '-',
                     },
                 ];
             });
