@@ -41,8 +41,21 @@ class CustomerTagihanController extends Controller
             return [
                 'id'       => $t->id,
                 'tanggal'  => $t->tanggal->format('Y-m-d'),
+                'bulan'    => $t->tanggal->translatedFormat('F Y'),
                 'jumlah'   => $t->jumlah,
-                'status'   => $status, // belum_dibayar | menunggu_verifikasi | lunas
+
+                // ================= STATUS =================
+                'status'        => $status, // belum_dibayar | menunggu_verifikasi | lunas
+                'status_label'  => match ($status) {
+                    'belum_dibayar'        => 'Belum Dibayar',
+                    'menunggu_verifikasi' => 'Menunggu Verifikasi',
+                    'lunas'                => 'Lunas',
+                    default                => '-',
+                },
+
+                // ================= FLAG UI =================
+                'can_pay'    => $status === 'belum_dibayar',
+                'is_waiting' => $status === 'menunggu_verifikasi',
             ];
         });
 
@@ -59,7 +72,7 @@ class CustomerTagihanController extends Controller
 
     /**
      * =====================================================
-     * TAGIHAN AKTIF (UNTUK HOME)
+     * TAGIHAN AKTIF (UNTUK HOME TAB)
      * GET /tagihan/aktif
      * =====================================================
      */
@@ -89,11 +102,25 @@ class CustomerTagihanController extends Controller
             return response()->json(null);
         }
 
+        $status = $tagihan->statusAktif();
+
         return response()->json([
-            'id'      => $tagihan->id,
-            'tanggal' => $tagihan->tanggal->format('Y-m-d'),
-            'jumlah'  => $tagihan->jumlah,
-            'status'  => $tagihan->statusAktif(),
+            'id'       => $tagihan->id,
+            'tanggal'  => $tagihan->tanggal->format('Y-m-d'),
+            'bulan'    => $tagihan->tanggal->translatedFormat('F Y'),
+            'jumlah'   => $tagihan->jumlah,
+
+            // ================= STATUS =================
+            'status'        => $status,
+            'status_label'  => match ($status) {
+                'belum_dibayar'        => 'Belum Dibayar',
+                'menunggu_verifikasi' => 'Menunggu Verifikasi',
+                default                => '-',
+            },
+
+            // ================= FLAG UI =================
+            'can_pay'    => $status === 'belum_dibayar',
+            'is_waiting' => $status === 'menunggu_verifikasi',
         ]);
     }
 }

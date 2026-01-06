@@ -53,6 +53,7 @@ class PembayaranController extends Controller
             $pembayaran = Pembayaran::create([
                 'user_id'      => $user->id,
                 'tagihan_id'   => $tagihan->id,
+                'tanggal'      => now()->toDateTimeString(),
                 'jumlah_bayar' => $tagihan->jumlah,
                 'metode'       => $request->metode,
                 'status'       => 'pending',

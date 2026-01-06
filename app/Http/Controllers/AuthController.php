@@ -9,7 +9,7 @@ use Illuminate\Validation\ValidationException;
 class AuthController extends Controller
 {
     /**
-     * Normalize phone number to +62 format
+     * Normalisasi nomor HP ke format +62
      */
     protected function normalizePhone(string $phone): string
     {
@@ -44,17 +44,22 @@ class AuthController extends Controller
         ]);
 
         $phone = $this->normalizePhone($request->phone);
-
         $otp = random_int(100000, 999999);
 
-        User::updateOrCreate(
+        /**
+         * 🔒 PENTING:
+         * - Role hanya di-set saat user PERTAMA KALI dibuat
+         * - Login berikutnya TIDAK mengubah role
+         */
+        $user = User::firstOrCreate(
             ['phone' => $phone],
-            [
-                'otp' => (string) $otp,
-                'otp_expires_at' => now()->addMinutes(3),
-                'role' => $request->input('role', 'customer'), // 🔒 DEFAULT ROLE
-            ]
+            ['role' => 'customer'] // default hanya saat user baru
         );
+
+        $user->update([
+            'otp' => (string) $otp,
+            'otp_expires_at' => now()->addMinutes(3),
+        ]);
 
         return response()->json([
             'message' => 'OTP sent',
@@ -91,12 +96,13 @@ class AuthController extends Controller
             ], 401);
         }
 
-        // 🔒 OTP valid → hapus agar tidak bisa reuse
+        // 🔒 Hapus OTP agar tidak bisa reuse
         $user->update([
             'otp' => null,
             'otp_expires_at' => null,
         ]);
 
+        // 🔑 Generate token
         $token = $user->createToken('mobile')->plainTextToken;
 
         return response()->json([

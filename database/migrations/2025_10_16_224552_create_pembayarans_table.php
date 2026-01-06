@@ -20,7 +20,7 @@ return new class extends Migration {
                 ->constrained()
                 ->cascadeOnDelete();
 
-            // admin yang verifikasi (nullable)
+            // admin yang verifikasi
             $table->foreignId('verified_by')
                 ->nullable()
                 ->constrained('users')
@@ -44,10 +44,23 @@ return new class extends Migration {
             $table->timestamps();
         });
 
+        // 🔥 HAPUS no_hp dari pelanggans (SATU SUMBER: users.phone)
+        Schema::table('pelanggans', function (Blueprint $table) {
+            if (Schema::hasColumn('pelanggans', 'no_hp')) {
+                $table->dropColumn('no_hp');
+            }
+        });
     }
 
     public function down(): void
     {
         Schema::dropIfExists('pembayarans');
+
+        // restore kolom no_hp jika rollback
+        Schema::table('pelanggans', function (Blueprint $table) {
+            if (!Schema::hasColumn('pelanggans', 'no_hp')) {
+                $table->string('no_hp')->nullable();
+            }
+        });
     }
 };
