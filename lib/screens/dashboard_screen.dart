@@ -1,9 +1,9 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/tagihan_service.dart';
 import '../services/pembayaran_service.dart';
+import '../services/notifikasi_service.dart';
+import '../services/user_service.dart';
 
 import '../tabs/home_tab.dart';
 import '../tabs/cek_tagihan_tab.dart';
@@ -22,8 +22,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String token = '';
 
   Map<String, dynamic>? member;
+  Map<String, dynamic>? tagihanAktif;
+  Map<String, dynamic>? summary;
+
   List<Map<String, dynamic>> bills = [];
   List<Map<String, dynamic>> history = [];
+  List<Map<String, dynamic>> notifikasi = [];
 
   bool loading = true;
   String? error;
@@ -31,29 +35,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    _loadDashboard();
   }
 
-  Future<void> _load() async {
+  Future<void> _loadDashboard() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
+      token = await UserService.getToken(); // pastikan method ini ada
 
-      final savedToken = prefs.getString('token');
-      final rawUser = prefs.getString('user');
+      final user = await UserService.me(token);
+      final tagihanData = await TagihanService.list(token);
+      final riwayat = await PembayaranService.riwayat(token);
+      final notif = await NotifikasiService.list(token);
 
-      if (savedToken == null || rawUser == null) {
-        throw Exception('Data login tidak ditemukan');
+      final tagihanList =
+          List<Map<String, dynamic>>.from(tagihanData['tagihan']);
+
+      Map<String, dynamic>? aktif;
+      for (final t in tagihanList) {
+        if (t['status'] == 'belum_dibayar' ||
+            t['status'] == 'menunggu_verifikasi') {
+          aktif = t;
+          break;
+        }
       }
 
-      token = savedToken;
-      member = Map<String, dynamic>.from(jsonDecode(rawUser));
-
-      final tagihan = await TagihanService.list(token);
-      final riwayat = await PembayaranService.riwayat(token);
-
       setState(() {
-        bills = List<Map<String, dynamic>>.from(tagihan);
+        member = user;
+        bills = tagihanList;
+        summary = tagihanData['summary'];
         history = List<Map<String, dynamic>>.from(riwayat);
+        notifikasi = List<Map<String, dynamic>>.from(notif);
+        tagihanAktif = aktif;
         loading = false;
       });
     } catch (e) {
@@ -80,15 +92,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    if (member == null) {
-      return const Scaffold(
-        body: Center(child: Text('Data pengguna tidak ditemukan')),
-      );
-    }
+    final unreadCount =
+        notifikasi.where((n) => n['dibaca'] == null).length;
 
     final pages = [
-      HomeTab(member: member!, bills: bills),
-      CekTagihanTab(bills: bills, token: token),
+      HomeTab(
+        member: member!,
+        tagihanAktif: tagihanAktif,
+        notifikasi: notifikasi,
+        unreadCount: unreadCount,
+        onRefresh: _loadDashboard,
+      ),
+      CekTagihanTab(
+        bills: bills,
+        token: token,
+      ),
       RiwayatTab(history: history),
       ProfileTab(member: member!),
     ];

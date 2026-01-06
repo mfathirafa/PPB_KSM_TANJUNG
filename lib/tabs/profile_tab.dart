@@ -4,15 +4,17 @@ import '../widgets/info_row.dart';
 
 class ProfileTab extends StatelessWidget {
   final Map<String, dynamic> member;
-  const ProfileTab({required this.member, super.key});
+
+  const ProfileTab({
+    required this.member,
+    super.key,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final String name =
-        (member['name'] ?? '').toString().trim();
+    final String name = (member['name'] ?? '-').toString();
     final String phone = member['phone'] ?? '-';
-    final Map<String, dynamic>? pelanggan = member['pelanggan'];
-    final String alamat = pelanggan?['alamat'] ?? '-';
+    final String alamat = member['alamat'] ?? 'Alamat belum diisi';
     final String userId = member['id'].toString();
 
     final String avatarText =
@@ -23,7 +25,7 @@ class ProfileTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          /* ================= HEADER CARD ================= */
+          /* ================= HEADER ================= */
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
@@ -39,15 +41,16 @@ class ProfileTab extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          name.isNotEmpty ? name : '-',
+                          name,
                           style: const TextStyle(
-                              fontWeight: FontWeight.bold),
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           'User ID: $userId',
-                          style:
-                              const TextStyle(color: Colors.grey),
+                          style: const TextStyle(color: Colors.grey),
                         ),
                       ],
                     ),
@@ -65,24 +68,20 @@ class ProfileTab extends StatelessWidget {
             style: TextStyle(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 8),
+
           Card(
             child: Padding(
               padding: const EdgeInsets.all(12),
-              child: pelanggan == null
-                  ? const Text(
-                      'Data pelanggan belum tersedia.',
-                      style: TextStyle(color: Colors.grey),
-                    )
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        InfoRow(title: 'Nama Lengkap', value: name),
-                        const SizedBox(height: 6),
-                        InfoRow(title: 'No. WhatsApp', value: phone),
-                        const SizedBox(height: 6),
-                        InfoRow(title: 'Alamat', value: alamat),
-                      ],
-                    ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  InfoRow(title: 'Nama Lengkap', value: name),
+                  const SizedBox(height: 6),
+                  InfoRow(title: 'No. WhatsApp', value: phone),
+                  const SizedBox(height: 6),
+                  InfoRow(title: 'Alamat', value: alamat),
+                ],
+              ),
             ),
           ),
 
@@ -102,8 +101,6 @@ class ProfileTab extends StatelessWidget {
               child: const Text('Logout'),
             ),
           ),
-
-          const SizedBox(height: 40),
         ],
       ),
     );

@@ -6,9 +6,9 @@ class CekTagihanTab extends StatefulWidget {
   final String token;
 
   const CekTagihanTab({
+    super.key,
     required this.bills,
     required this.token,
-    super.key,
   });
 
   @override
@@ -19,20 +19,23 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
   String selectedStatus = 'Semua';
   String selectedTanggal = 'Terbaru';
 
-  // ================= STATUS BACKEND =================
-  bool _isPending(String? status) => status == 'pending';
-  bool _isWaiting(String? status) => status == 'waiting';
-  bool _isConfirmed(String? status) => status == 'confirmed';
+  // ================= STATUS BACKEND (FINAL) =================
+  bool _belumDibayar(Map<String, dynamic> b) =>
+      b['status'] == 'belum_dibayar';
+
+  bool _lunas(Map<String, dynamic> b) =>
+      b['status'] == 'lunas';
+
+  bool _menungguVerifikasi(Map<String, dynamic> b) =>
+      b['is_waiting'] == true;
 
   @override
   Widget build(BuildContext context) {
-    final pending = widget.bills
-        .where((b) => _isPending(b['status']))
-        .toList();
+    final belumBayar =
+        widget.bills.where(_belumDibayar).toList();
 
-    final confirmed = widget.bills
-        .where((b) => _isConfirmed(b['status']))
-        .toList();
+    final lunas =
+        widget.bills.where(_lunas).toList();
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -42,7 +45,7 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             const Text(
-              "Summary",
+              "Ringkasan",
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
             Text(
@@ -56,18 +59,18 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
           children: [
             Expanded(
               child: _summaryCard(
-                title: "Tagihan\nBelum Dibayar",
-                count: "${pending.length} Tagihan",
-                total: "Rp ${_sum(pending)}",
+                title: "Belum Dibayar",
+                count: "${belumBayar.length} Tagihan",
+                total: "Rp ${_sum(belumBayar)}",
                 color: Colors.orange,
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: _summaryCard(
-                title: "Tagihan\nSudah Dibayar",
-                count: "${confirmed.length} Tagihan",
-                total: "Rp ${_sum(confirmed)}",
+                title: "Sudah Dibayar",
+                count: "${lunas.length} Tagihan",
+                total: "Rp ${_sum(lunas)}",
                 color: Colors.green,
               ),
             ),
@@ -109,7 +112,9 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
         const SizedBox(height: 16),
 
         /* ================= LIST ================= */
-        ..._filteredBills().map((b) => _billCard(context, b)).toList(),
+        ..._filteredBills()
+            .map((b) => _billCard(context, b))
+            .toList(),
       ],
     );
   }
@@ -118,7 +123,7 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
   int _sum(List<Map<String, dynamic>> bills) {
     return bills.fold<int>(
       0,
-      (s, b) => s + int.tryParse(b['jumlah']?.toString() ?? '0')!,
+      (s, b) => s + (b['jumlah'] as int? ?? 0),
     );
   }
 
@@ -126,20 +131,14 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
     var data = List<Map<String, dynamic>>.from(widget.bills);
 
     if (selectedStatus == 'Belum Dibayar') {
-      data = data.where((b) =>
-          _isPending(b['status']) || _isWaiting(b['status'])).toList();
+      data = data.where(_belumDibayar).toList();
     } else if (selectedStatus == 'Sudah Dibayar') {
-      data = data.where((b) => _isConfirmed(b['status'])).toList();
+      data = data.where(_lunas).toList();
     }
 
     data.sort((a, b) {
-      final da =
-          DateTime.tryParse(a['tanggal']?.toString() ?? '') ??
-              DateTime(2000);
-      final db =
-          DateTime.tryParse(b['tanggal']?.toString() ?? '') ??
-              DateTime(2000);
-
+      final da = DateTime.tryParse(a['tanggal']) ?? DateTime(2000);
+      final db = DateTime.tryParse(b['tanggal']) ?? DateTime(2000);
       return selectedTanggal == 'Terbaru'
           ? db.compareTo(da)
           : da.compareTo(db);
@@ -181,8 +180,7 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
   }
 
   Widget _billCard(BuildContext context, Map<String, dynamic> b) {
-    final status = b['status'];
-    final canPay = _isPending(status);
+    final canPay = b['can_pay'] == true;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -200,14 +198,14 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
             'Tagihan #${b['id']}',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
-          _statusBadge(status),
+          _statusBadge(b),
         ]),
         const SizedBox(height: 6),
-        Text('Tanggal: ${b['tanggal'] ?? '-'}'),
+        Text('Tanggal: ${b['tanggal']}'),
         const SizedBox(height: 6),
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
           Text(
-            'Rp ${b['jumlah'] ?? 0}',
+            'Rp ${b['jumlah']}',
             style: const TextStyle(fontWeight: FontWeight.bold),
           ),
           if (canPay)
@@ -230,12 +228,12 @@ class _CekTagihanTabState extends State<CekTagihanTab> {
     );
   }
 
-  Widget _statusBadge(String? status) {
-    if (_isConfirmed(status)) {
+  Widget _statusBadge(Map<String, dynamic> b) {
+    if (_lunas(b)) {
       return _badge('Sudah Dibayar', Colors.green);
     }
 
-    if (_isWaiting(status)) {
+    if (_menungguVerifikasi(b)) {
       return _badge('Menunggu Verifikasi', Colors.amber);
     }
 

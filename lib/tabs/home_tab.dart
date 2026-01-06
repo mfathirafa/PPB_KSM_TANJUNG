@@ -1,115 +1,163 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
 import '../widgets/info_row.dart';
 import '../screens/pembayaran_screen.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../services/notifikasi_service.dart';
 
 class HomeTab extends StatelessWidget {
   final Map<String, dynamic> member;
-  final List<Map<String, dynamic>> bills;
+  final Map<String, dynamic>? tagihanAktif;
+  final List<Map<String, dynamic>> notifikasi;
+  final int unreadCount;
+  final VoidCallback onRefresh;
 
   const HomeTab({
-    required this.member,
-    required this.bills,
     super.key,
+    required this.member,
+    required this.tagihanAktif,
+    required this.notifikasi,
+    required this.unreadCount,
+    required this.onRefresh,
   });
 
-  bool _isPending(String s) => s == 'pending';
-  bool _isWaiting(String s) => s == 'menunggu_verifikasi';
-  bool _isLunas(String s) => s == 'lunas';
+  bool _isWaiting(String? s) => s == 'menunggu_verifikasi';
+  bool _isLunas(String? s) => s == 'lunas';
 
   @override
   Widget build(BuildContext context) {
-    final activeBills = bills.where((b) {
-      final s = b['status'];
-      return _isPending(s) || _isWaiting(s);
-    }).toList();
-
-    final nextBill = activeBills.isNotEmpty ? activeBills.first : null;
+    final bill = tagihanAktif;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(
-          'Selamat datang, ${member['name'] ?? '-'}',
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+
+        // ================= HEADER =================
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Selamat datang, ${member['name']}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
+            if (unreadCount > 0)
+              CircleAvatar(
+                radius: 12,
+                backgroundColor: Colors.red,
+                child: Text(
+                  '$unreadCount',
+                  style: const TextStyle(color: Colors.white, fontSize: 12),
+                ),
+              ),
+          ],
         ),
+
         const SizedBox(height: 16),
 
+        // ================= INFORMASI PELANGGAN =================
         const Text('Informasi Pelanggan',
             style: TextStyle(fontWeight: FontWeight.bold)),
         _card(Column(children: [
           InfoRow(title: 'Nama', value: member['name'] ?? '-'),
-          InfoRow(title: 'No HP', value: member['phone'] ?? '-'),
+          InfoRow(title: 'No. WhatsApp', value: member['phone'] ?? '-'),
+          InfoRow(title: 'Alamat', value: member['alamat'] ?? '-'),
+          InfoRow(title: 'Role', value: member['role'] ?? '-'),
         ])),
 
         const SizedBox(height: 16),
 
+        // ================= INFORMASI TAGIHAN =================
         const Text('Informasi Tagihan',
             style: TextStyle(fontWeight: FontWeight.bold)),
         _card(
-          nextBill == null
-              ? const Text('Tidak ada tagihan aktif')
+          bill == null
+              ? const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 20),
+                  child: Center(child: Text('Tidak ada tagihan aktif')),
+                )
               : Column(children: [
-                  InfoRow(
-                      title: 'Tanggal', value: nextBill['tanggal'] ?? '-'),
+                  InfoRow(title: 'Tanggal', value: bill['tanggal']),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('Status'),
-                      _statusBadge(nextBill['status']),
+                      _statusBadge(bill['status']),
                     ],
                   ),
                   InfoRow(
                       title: 'Jumlah',
-                      value: 'Rp ${nextBill['jumlah']}'),
-                  if (_isPending(nextBill['status']))
-                    ElevatedButton(
-                      onPressed: () async {
-                        final prefs =
-                            await SharedPreferences.getInstance();
-                        final token =
-                            prefs.getString('token') ?? '';
+                      value: 'Rp ${bill['jumlah']}'),
+                  const SizedBox(height: 12),
 
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => PembayaranScreen(
-                              bill: nextBill,
-                              token: token,
+                  if (!_isWaiting(bill['status']) &&
+                      !_isLunas(bill['status']))
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () async {
+                          final prefs =
+                              await SharedPreferences.getInstance();
+                          final token =
+                              prefs.getString('token') ?? '';
+
+                          final result = await Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => PembayaranScreen(
+                                bill: bill,
+                                token: token,
+                              ),
                             ),
-                          ),
-                        );
-                      },
-                      child: const Text('Bayar Sekarang'),
+                          );
+
+                          if (result == true) onRefresh();
+                        },
+                        child: const Text('Bayar Sekarang'),
+                      ),
                     ),
                 ]),
         ),
 
-        if (nextBill != null && _isWaiting(nextBill['status']))
-          _card(const Text(
-            'Pembayaran Anda sedang menunggu verifikasi admin',
-            style: TextStyle(color: Colors.orange),
-          )),
+        const SizedBox(height: 16),
+
+        // ================= NOTIFIKASI =================
+        if (notifikasi.isNotEmpty) ...[
+          const Text('Notifikasi',
+              style: TextStyle(fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+          for (final n in notifikasi)
+            GestureDetector(
+              onTap: () async {
+                await NotifikasiService.markRead(n['id']);
+                onRefresh();
+              },
+              child: _card(Text(n['pesan'])),
+            ),
+        ],
       ]),
     );
   }
 
-  Widget _statusBadge(String s) {
-    if (_isLunas(s)) return _badge('Lunas', Colors.green);
-    if (_isWaiting(s))
+  Widget _statusBadge(String? status) {
+    if (status == 'lunas') {
+      return _badge('Lunas', Colors.green);
+    }
+    if (status == 'menunggu_verifikasi') {
       return _badge('Menunggu Verifikasi', Colors.orange);
+    }
     return _badge('Belum Dibayar', Colors.red);
   }
 
-  Widget _badge(String t, Color c) => Container(
+  Widget _badge(String text, Color color) => Container(
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration:
-            BoxDecoration(color: c, borderRadius: BorderRadius.circular(6)),
-        child: Text(t, style: const TextStyle(color: Colors.white)),
+            BoxDecoration(color: color, borderRadius: BorderRadius.circular(6)),
+        child: Text(text, style: const TextStyle(color: Colors.white)),
       );
 
   Widget _card(Widget child) => Container(
-        margin: const EdgeInsets.symmetric(vertical: 8),
+        width: double.infinity,
+        margin: const EdgeInsets.symmetric(vertical: 6),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
