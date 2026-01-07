@@ -13,7 +13,7 @@ class PaymentHistoryScreen extends StatefulWidget {
 
 class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
   String filterStatus = "Semua";
-  List<Map<String, dynamic>> allBills = [];
+  List<Map<String, dynamic>> allPayments = [];
   bool loading = true;
   String? error;
 
@@ -31,41 +31,40 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
   Future<void> _loadData() async {
     try {
       final token = await _getToken();
-
       if (token.isEmpty) {
-        throw Exception('Token tidak ditemukan, silakan login ulang');
+        throw Exception("Token tidak ditemukan");
       }
 
       final res = await PaymentAdminService.list(token);
-
-      if (!mounted) return;
-
-      final list = List<Map<String, dynamic>>.from(res ?? []);
+      final list = List<Map<String, dynamic>>.from(res);
 
       setState(() {
-        allBills = list.map<Map<String, dynamic>>((p) {
-          final rawStatus = p['status'];
+        allPayments = list.map((p) {
+          final status = p['status'];
 
-          final bool isPaid =
-              rawStatus == 'confirmed' || rawStatus == 'lunas';
-
-          final user = Map<String, dynamic>.from(p['user'] ?? {});
+          final bool isPaid = status == 'confirmed';
 
           return {
-            "id": p['id']?.toString() ?? '-',
-            "name": user['name'] ?? '-',
-            "phone": user['phone'] ?? '-',
-            "amount": (p['jumlah_bayar'] ?? 0).toString(),
+            "id": p['id'].toString(),
+            "name": p['nama'] ?? '-',
+            "amount": (p['jumlah'] ?? 0).toString(),
             "date": p['tanggal'] ?? '-',
-            "status": isPaid ? "Sudah Dibayar" : "Menunggu Verifikasi",
-            "color": isPaid ? Colors.green : Colors.orange,
+            "status": isPaid
+                ? "Sudah Dibayar"
+                : status == 'rejected'
+                    ? "Ditolak"
+                    : "Menunggu Verifikasi",
+            "color": isPaid
+                ? Colors.green
+                : status == 'rejected'
+                    ? Colors.red
+                    : Colors.orange,
           };
         }).toList();
 
         loading = false;
       });
     } catch (e) {
-      if (!mounted) return;
       setState(() {
         error = e.toString();
         loading = false;
@@ -73,9 +72,9 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
     }
   }
 
-  List<Map<String, dynamic>> get filteredBills {
-    if (filterStatus == "Semua") return allBills;
-    return allBills.where((b) => b["status"] == filterStatus).toList();
+  List<Map<String, dynamic>> get filteredPayments {
+    if (filterStatus == "Semua") return allPayments;
+    return allPayments.where((p) => p["status"] == filterStatus).toList();
   }
 
   @override
@@ -84,7 +83,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
       drawer: const AdminSidebar(),
       endDrawer: _FilterSidebar(
         selectedStatus: filterStatus,
-        onApply: (value) => setState(() => filterStatus = value),
+        onApply: (v) => setState(() => filterStatus = v),
       ),
       appBar: AppBar(
         backgroundColor: Colors.white,
@@ -104,7 +103,6 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
               onPressed: () => Scaffold.of(context).openEndDrawer(),
             ),
           ),
-          const SizedBox(width: 8),
         ],
       ),
       body: loading
@@ -120,15 +118,14 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
               : ListView(
                   padding: const EdgeInsets.all(16),
                   children: [
-                    for (var bill in filteredBills)
-                      _paymentHistoryCard(
-                        bill["id"],
-                        bill["name"],
-                        bill["phone"],
-                        bill["amount"],
-                        bill["date"],
-                        bill["status"],
-                        bill["color"],
+                    for (var p in filteredPayments)
+                      _paymentCard(
+                        p['id'],
+                        p['name'],
+                        p['amount'],
+                        p['date'],
+                        p['status'],
+                        p['color'],
                       ),
                     const SizedBox(height: 80),
                   ],
@@ -136,14 +133,13 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
     );
   }
 
-  Widget _paymentHistoryCard(
-    String paymentId,
+  Widget _paymentCard(
+    String id,
     String name,
-    String phone,
     String amount,
     String date,
     String status,
-    Color statusColor,
+    Color color,
   ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -159,21 +155,19 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                "Pembayaran #$paymentId",
-                style: const TextStyle(fontWeight: FontWeight.bold),
-              ),
+              Text("Pembayaran #$id",
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
               Container(
                 padding:
                     const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.2),
+                  color: color.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   status,
                   style: TextStyle(
-                    color: statusColor,
+                    color: color,
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
@@ -183,7 +177,6 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
           ),
           const SizedBox(height: 6),
           Text(name, style: const TextStyle(fontWeight: FontWeight.w500)),
-          Text(phone, style: TextStyle(color: Colors.grey[600])),
           const SizedBox(height: 10),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -194,10 +187,8 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
               ),
               Text(
                 "Rp $amount",
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
-                ),
+                style:
+                    const TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
               ),
             ],
           )
@@ -207,7 +198,7 @@ class _PaymentHistoryScreenState extends State<PaymentHistoryScreen> {
   }
 }
 
-/* ================= FILTER SIDEBAR ================= */
+/* ================= FILTER ================= */
 
 class _FilterSidebar extends StatefulWidget {
   final String selectedStatus;
@@ -249,6 +240,10 @@ class _FilterSidebarState extends State<_FilterSidebar> {
                 DropdownMenuItem(
                   value: "Menunggu Verifikasi",
                   child: Text("Menunggu Verifikasi"),
+                ),
+                DropdownMenuItem(
+                  value: "Ditolak",
+                  child: Text("Ditolak"),
                 ),
               ],
               onChanged: (v) => setState(() => selectedStatus = v!),
