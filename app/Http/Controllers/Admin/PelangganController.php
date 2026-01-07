@@ -11,7 +11,9 @@ use Illuminate\Support\Facades\DB;
 class PelangganController extends Controller
 {
     /**
-     * Normalize phone number to +62 format
+     * =========================
+     * NORMALIZE PHONE (+62)
+     * =========================
      */
     protected function normalizePhone(string $phone): string
     {
@@ -29,33 +31,60 @@ class PelangganController extends Controller
             return '+62' . $phone;
         }
 
-        throw new \Exception('Invalid phone number');
+        throw new \Exception('Format nomor tidak valid');
     }
 
     /**
-     * GET /admin/pelanggan
+     * =====================================================
+     * GET /api/admin/pelanggan
+     * MASTER DATA PELANGGAN (FINAL & BENAR)
+     * =====================================================
+     * - SEMUA pelanggan muncul
+     * - TANPA syarat tagihan
+     * - TANPA syarat pembayaran
+     * - Status pelanggan ≠ status pembayaran
      */
     public function index()
     {
-        $pelanggans = Pelanggan::with('user')
-            ->orderByDesc('created_at')
-            ->get()
-            ->map(function ($p) {
-                return [
-                    'id'         => $p->id,
-                    'nama'       => $p->nama,
-                    'phone'      => $p->no_hp,
-                    'alamat'     => $p->alamat,
-                    'user_id'    => $p->user_id,
-                    'created_at'=> $p->created_at->format('Y-m-d'),
-                ];
-            });
+        $pelanggans = Pelanggan::with([
+            'user',
+            'tagihans.pembayarans'
+        ])
+        ->orderByDesc('created_at')
+        ->get()
+        ->map(function ($p) {
 
-        return response()->json($pelanggans);
+            // Ambil pembayaran terakhir (jika ada)
+            $lastPayment = $p->tagihans
+                ->flatMap->pembayarans
+                ->sortByDesc('created_at')
+                ->first();
+
+            return [
+                'id'           => $p->id,
+                'nama'         => $p->nama,
+                'phone'        => $p->no_hp,
+                'alamat'       => $p->alamat,
+
+                // ✅ STATUS PELANGGAN (MASTER DATA)
+                'status'       => 'aktif',
+
+                // Info tambahan (opsional)
+                'last_payment' => $lastPayment
+                    ? $lastPayment->created_at->format('Y-m-d')
+                    : null,
+            ];
+        });
+
+        return response()->json([
+            'pelanggan' => $pelanggans
+        ]);
     }
 
     /**
-     * POST /admin/pelanggan
+     * =========================
+     * POST /api/admin/pelanggan
+     * =========================
      */
     public function store(Request $request)
     {
@@ -70,16 +99,14 @@ class PelangganController extends Controller
         try {
             $phone = $this->normalizePhone($request->phone);
 
-            // Cari atau buat user
-            $user = User::where('phone', $phone)->first();
-
-            if (!$user) {
-                $user = User::create([
-                    'name'  => $request->nama,
-                    'phone' => $phone,
-                    'role'  => 'customer',
-                ]);
-            }
+            // Cari / buat user
+            $user = User::firstOrCreate(
+                ['phone' => $phone],
+                [
+                    'name' => $request->nama,
+                    'role' => 'customer',
+                ]
+            );
 
             // Cegah pelanggan ganda
             if (Pelanggan::where('user_id', $user->id)->exists()) {
@@ -115,44 +142,35 @@ class PelangganController extends Controller
     }
 
     /**
-     * GET /admin/pelanggan/{id}
-     */
-    public function show($id)
-    {
-        $pelanggan = Pelanggan::with('user')->find($id);
-
-        if (!$pelanggan) {
-            return response()->json(['message' => 'Pelanggan tidak ditemukan'], 404);
-        }
-
-        return response()->json($pelanggan);
-    }
-
-    /**
-     * PUT /admin/pelanggan/{id}
+     * =========================
+     * PUT /api/admin/pelanggan/{id}
+     * =========================
      */
     public function update(Request $request, $id)
     {
-        $pelanggan = Pelanggan::find($id);
-
-        if (!$pelanggan) {
-            return response()->json(['message' => 'Pelanggan tidak ditemukan'], 404);
-        }
-
         $request->validate([
             'nama'   => 'required|string|max:200',
             'alamat' => 'required|string',
         ]);
+
+        $pelanggan = Pelanggan::with('user')->find($id);
+
+        if (!$pelanggan) {
+            return response()->json([
+                'message' => 'Pelanggan tidak ditemukan'
+            ], 404);
+        }
 
         $pelanggan->update([
             'nama'   => $request->nama,
             'alamat' => $request->alamat,
         ]);
 
-        // Sinkronkan ke user
-        $pelanggan->user->update([
-            'name' => $request->nama,
-        ]);
+        if ($pelanggan->user) {
+            $pelanggan->user->update([
+                'name' => $request->nama
+            ]);
+        }
 
         return response()->json([
             'message' => 'Pelanggan berhasil diperbarui'
@@ -160,17 +178,20 @@ class PelangganController extends Controller
     }
 
     /**
-     * DELETE /admin/pelanggan/{id}
+     * =========================
+     * DELETE /api/admin/pelanggan/{id}
+     * =========================
      */
     public function destroy($id)
     {
         $pelanggan = Pelanggan::find($id);
 
         if (!$pelanggan) {
-            return response()->json(['message' => 'Pelanggan tidak ditemukan'], 404);
+            return response()->json([
+                'message' => 'Pelanggan tidak ditemukan'
+            ], 404);
         }
 
-        // ⚠️ Hanya hapus pelanggan, user tetap ada
         $pelanggan->delete();
 
         return response()->json([

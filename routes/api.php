@@ -125,8 +125,9 @@ Route::middleware(['auth:sanctum', 'admin'])
         | LAPORAN
         |--------------------------------------------------------------------------
                 */
-        Route::get('/laporan-keuangan', [LaporanKeuanganController::class, 'index']);
+        Route::get('/laporan-keuangan', [LaporanKeuanganController::class, 'index']); 
         Route::get('/laporan-keuangan/{periode}', [LaporanKeuanganController::class, 'show']);
+        Route::get('/laporan-keuangan/pdf/{periode}', [LaporanKeuanganController::class, 'export']);
 
         /*
         |--------------------------------------------------------------------------

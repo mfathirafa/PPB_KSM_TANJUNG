@@ -30,21 +30,23 @@ class Tagihan extends Model
      * ===============================
      * STATUS AKTIF TAGIHAN (FINAL)
      * ===============================
-     * PRIORITAS:
-     * 1. pending   → menunggu verifikasi
-     * 2. confirmed → lunas
-     * 3. lainnya   → belum_dibayar
+     * STATUS DITENTUKAN DARI PEMBAYARAN TERAKHIR
      */
     public function statusAktif(): string
     {
-        if ($this->pembayarans->where('status', 'pending')->count() > 0) {
-            return 'pending';
+        $lastPayment = $this->pembayarans()
+            ->orderByDesc('created_at')
+            ->first();
+
+        if (!$lastPayment) {
+            return 'belum_dibayar';
         }
 
-        if ($this->pembayarans->where('status', 'confirmed')->count() > 0) {
-            return 'lunas';
-        }
-
-        return 'belum_dibayar';
+        return match ($lastPayment->status) {
+            'pending'   => 'menunggu_verifikasi',
+            'confirmed' => 'lunas',
+            'rejected'  => 'ditolak',
+            default     => 'belum_dibayar',
+        };
     }
 }

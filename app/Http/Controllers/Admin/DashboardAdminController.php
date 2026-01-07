@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Models\Pelanggan;
 use App\Models\Tagihan;
 use App\Models\Pembayaran;
-use Illuminate\Http\Request;
 use Carbon\Carbon;
 
 class DashboardAdminController extends Controller
@@ -16,33 +15,46 @@ class DashboardAdminController extends Controller
      */
     public function index()
     {
-        // =========================
-        // STATISTIK UTAMA
-        // =========================
+        $today = Carbon::today();
+
+        /* =========================
+         | PELANGGAN
+         ========================= */
         $totalPelanggan = Pelanggan::count();
-        $totalTagihan   = Tagihan::count();
+        $pelangganAktif3Bulan = Pelanggan::where(
+            'created_at',
+            '>=',
+            now()->subMonths(3)
+        )->count();
 
-        // TOTAL TRANSAKSI PEMBAYARAN
-        $totalTransaksi = Pembayaran::count();
+        /* =========================
+         | TAGIHAN BULAN INI
+         ========================= */
+        $tagihanQuery = Tagihan::whereMonth('tanggal', now()->month)
+            ->whereYear('tanggal', now()->year);
 
-        // TOTAL UANG MASUK (CONFIRMED SAJA)
-        $totalPembayaran = Pembayaran::where('status', 'confirmed')
+        $totalTagihanBulanIniRp = (int) $tagihanQuery->sum('jumlah');
+        $totalTagihanBulanIniCount = (int) $tagihanQuery->count();
+
+        /* =========================
+         | PEMBAYARAN HARI INI
+         ========================= */
+        $pembayaranHariIniRp = (int) Pembayaran::whereDate('created_at', $today)
+            ->where('status', 'confirmed')
             ->sum('jumlah_bayar');
 
-        // PEMBAYARAN PENDING
-        $pendingPembayaran = Pembayaran::where('status', 'pending')->count();
+        $pembayaranHariIniTransaksi = (int) Pembayaran::whereDate('created_at', $today)
+            ->count();
 
-        // =========================
-        // TOTAL TAGIHAN BULAN INI
-        // =========================
-        $totalTagihanBulanIni = Tagihan::whereMonth('tanggal', now()->month)
-            ->whereYear('tanggal', now()->year)
-            ->sum('jumlah');
+        /* =========================
+         | MENUNGGU VERIFIKASI
+         ========================= */
+        $menungguVerifikasi = (int) Pembayaran::where('status', 'pending')->count();
 
-        // =========================
-        // TAGIHAN TERBARU (5 DATA)
-        // =========================
-        $tagihanTerbaru = Tagihan::with('pelanggan.user')
+        /* =========================
+         | TAGIHAN TERBARU
+         ========================= */
+        $tagihanTerbaru = Tagihan::with(['pelanggan', 'pembayarans'])
             ->orderByDesc('created_at')
             ->limit(5)
             ->get()
@@ -51,22 +63,31 @@ class DashboardAdminController extends Controller
                     'id'      => $t->id,
                     'nama'    => $t->pelanggan->nama ?? '-',
                     'tanggal' => $t->tanggal->format('Y-m-d'),
-                    'jumlah'  => $t->jumlah,
-                    'status'  => $t->status,
+                    'jumlah'  => (int) $t->jumlah,
+                    'status'  => $t->statusAktif(),
                 ];
             });
 
         return response()->json([
-            'stats' => [
-                'total_pelanggan'          => $totalPelanggan,
-                'total_tagihan'            => $totalTagihan,
-                'total_transaksi'          => $totalTransaksi,
-                'total_pembayaran'         => $totalPembayaran,
-                'pending_pembayaran'       => $pendingPembayaran,
-                'total_tagihan_bulan_ini'  => $totalTagihanBulanIni,
-            ],
-            'tagihan_terbaru' => $tagihanTerbaru,
             'tanggal' => now()->format('Y-m-d'),
+
+            'stats' => [
+                'pelanggan' => [
+                    'total' => $totalPelanggan,
+                    'aktif_3_bulan' => $pelangganAktif3Bulan,
+                ],
+                'tagihan' => [
+                    'total_rp_bulan_ini' => $totalTagihanBulanIniRp,
+                    'total_tagihan_bulan_ini' => $totalTagihanBulanIniCount,
+                ],
+                'pembayaran_hari_ini' => [
+                    'total_rp' => $pembayaranHariIniRp,
+                    'total_transaksi' => $pembayaranHariIniTransaksi,
+                ],
+                'menunggu_verifikasi' => $menungguVerifikasi,
+            ],
+
+            'tagihan_terbaru' => $tagihanTerbaru,
         ]);
     }
 }

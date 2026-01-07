@@ -3,139 +3,137 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
 use App\Models\Pembayaran;
 use App\Models\Tagihan;
 use Carbon\Carbon;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Http\Request;
 
 class LaporanKeuanganController extends Controller
 {
-    /**
-     * =====================================================
+    /* =====================================================
      * GET /admin/laporan-keuangan
-     * Dashboard laporan (7 hari terakhir)
-     * =====================================================
-     */
-    public function index(Request $request)
+     * Dashboard 7 hari terakhir
+     * ===================================================== */
+    public function index()
     {
-        if ($request->user()->role !== 'admin') {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
-
-        /* ======================
-         * SUMMARY
-         * ====================== */
-        $totalPendapatan = Pembayaran::where('status', 'confirmed')
+        $totalPendapatan = (int) Pembayaran::where('status', 'confirmed')
             ->sum('jumlah_bayar');
 
-        $totalTagihan = Tagihan::count();
+        $totalTagihan = (int) Tagihan::count();
 
-        /* ======================
-         * CHART (7 hari terakhir)
-         * ====================== */
-        $chart = collect(range(6, 0))->map(function ($i) {
-            $date = Carbon::now()->subDays($i)->toDateString();
+        $chart = collect();
 
-            return [
-                'tanggal' => $date,
-                'total' => Pembayaran::whereDate('created_at', $date)
+        for ($i = 6; $i >= 0; $i--) {
+            $date = Carbon::today()->subDays($i);
+
+            $chart->push([
+                'tanggal' => $date->toDateString(),
+                'total' => (int) Pembayaran::whereDate('created_at', $date)
                     ->where('status', 'confirmed')
                     ->sum('jumlah_bayar'),
-            ];
-        });
+            ]);
+        }
 
-        /* ======================
-         * TRANSAKSI TERBARU
-         * ====================== */
         $transactions = Pembayaran::with('tagihan.pelanggan')
             ->where('status', 'confirmed')
-            ->orderByDesc('created_at')
-            ->limit(5)
+            ->latest()
+            ->limit(10)
             ->get()
-            ->map(function ($p) {
-                return [
-                    'tanggal' => $p->created_at->format('d M Y'),
-                    'tagihan_id' => $p->tagihan_id,
-                    'nama' => optional($p->tagihan->pelanggan)->nama,
-                    'jumlah' => $p->jumlah_bayar,
-                ];
-            });
+            ->map(fn ($p) => [
+                'tanggal'    => $p->created_at->format('d M Y'),
+                'tagihan_id' => (int) $p->tagihan_id,
+                'nama'       => $p->tagihan->pelanggan->nama ?? '-',
+                'jumlah'     => (int) $p->jumlah_bayar,
+            ]);
 
         return response()->json([
             'summary' => [
                 'total_pendapatan' => $totalPendapatan,
-                'total_tagihan' => $totalTagihan,
+                'total_tagihan'    => $totalTagihan,
             ],
             'chart' => $chart,
             'transactions' => $transactions,
         ]);
     }
 
-    /**
-     * =====================================================
+    /* =====================================================
      * GET /admin/laporan-keuangan/{periode}
-     * Laporan berdasarkan bulan (YYYY-MM)
-     * =====================================================
-     */
-    public function show(Request $request, string $periode)
+     * JSON laporan bulanan
+     * ===================================================== */
+    public function show(string $periode)
     {
-        if ($request->user()->role !== 'admin') {
-            return response()->json(['message' => 'Forbidden'], 403);
-        }
+        [$start, $end] = $this->parsePeriode($periode);
 
+        return response()->json(
+            $this->buildLaporanData($start, $end, $periode)
+        );
+    }
+
+    /* =====================================================
+     * GET /admin/laporan-keuangan/pdf/{periode}
+     * EXPORT PDF
+     * ===================================================== */
+    public function pdf(string $periode)
+    {
+        [$start, $end] = $this->parsePeriode($periode);
+
+        $data = $this->buildLaporanData($start, $end, $periode);
+
+        $pdf = Pdf::loadView('pdf.laporan_keuangan', $data);
+
+        return $pdf->download("laporan-keuangan-$periode.pdf");
+    }
+
+    /* =====================================================
+     * UTILITIES
+     * ===================================================== */
+
+    private function parsePeriode(string $periode): array
+    {
         try {
             $start = Carbon::createFromFormat('Y-m', $periode)->startOfMonth();
             $end   = Carbon::createFromFormat('Y-m', $periode)->endOfMonth();
-        } catch (\Exception $e) {
-            return response()->json([
-                'message' => 'Format periode tidak valid. Gunakan YYYY-MM'
-            ], 422);
+            return [$start, $end];
+        } catch (\Exception) {
+            abort(422, 'Format periode harus YYYY-MM');
         }
+    }
 
-        /* ======================
-         * SUMMARY
-         * ====================== */
-        $totalPendapatan = Pembayaran::whereBetween('created_at', [$start, $end])
+    private function buildLaporanData(Carbon $start, Carbon $end, string $periode): array
+    {
+        $totalPendapatan = (int) Pembayaran::whereBetween('created_at', [$start, $end])
             ->where('status', 'confirmed')
             ->sum('jumlah_bayar');
 
-        $totalTagihan = Tagihan::whereBetween('tanggal', [$start, $end])
-            ->count();
+        $totalTagihan = (int) Tagihan::whereBetween('tanggal', [$start, $end])->count();
 
-        /* ======================
-         * CHART (per hari dalam bulan)
-         * ====================== */
         $chart = [];
         $cursor = $start->copy();
 
         while ($cursor <= $end) {
             $chart[] = [
                 'tanggal' => $cursor->toDateString(),
-                'total' => Pembayaran::whereDate('created_at', $cursor)
+                'total' => (int) Pembayaran::whereDate('created_at', $cursor)
                     ->where('status', 'confirmed')
                     ->sum('jumlah_bayar'),
             ];
             $cursor->addDay();
         }
 
-        /* ======================
-         * TRANSAKSI BULAN TERPILIH
-         * ====================== */
         $transactions = Pembayaran::with('tagihan.pelanggan')
             ->whereBetween('created_at', [$start, $end])
             ->where('status', 'confirmed')
-            ->orderByDesc('created_at')
+            ->latest()
             ->get()
-            ->map(function ($p) {
-                return [
-                    'tanggal' => $p->created_at->format('d M Y'),
-                    'tagihan_id' => $p->tagihan_id,
-                    'nama' => optional($p->tagihan->pelanggan)->nama,
-                    'jumlah' => $p->jumlah_bayar,
-                ];
-            });
+            ->map(fn ($p) => [
+                'tanggal' => $p->created_at->format('d M Y'),
+                'tagihan_id' => $p->tagihan_id,
+                'nama' => $p->tagihan->pelanggan->nama ?? '-',
+                'jumlah' => (int) $p->jumlah_bayar,
+            ]);
 
-        return response()->json([
+        return [
             'periode' => $periode,
             'summary' => [
                 'total_pendapatan' => $totalPendapatan,
@@ -143,6 +141,6 @@ class LaporanKeuanganController extends Controller
             ],
             'chart' => $chart,
             'transactions' => $transactions,
-        ]);
+        ];
     }
 }
